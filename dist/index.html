@@ -7,15 +7,18 @@
 <meta name="theme-color" content="#0d141c">
 <title>Melvor II Вики — русскоязычный справочник</title>
 <link rel="preload" as="image" href="hero.webp">
+<link rel="icon" href="/game-logo.webp" type="image/webp">
 <link rel="stylesheet" href="style.css">
 <script src="data.js" defer></script>
+<script src="icons.js" defer></script>
 <script src="app.js" defer></script>
+<script src="feedback.js" defer></script>
 </head>
 <body>
 <header class="top"><div class="top-inner">
-<a class="brand" href="#/" aria-label="Melvor II Вики, главная"><span class="brand-mark" aria-hidden="true">✧</span><span>MELVOR <b>II</b><small>ВИКИ</small></span></a>
+<a class="brand" href="#/" aria-label="Melvor II Вики, главная"><img class="brand-logo" src="/game-logo.webp" alt="" width="44" height="44"><span>MELVOR <b>II</b><small>ВИКИ</small></span></a>
 <form class="search" role="search"><span aria-hidden="true">⌕</span><input type="search" aria-label="Поиск по вики" placeholder="Поиск по вики…" name="q" autocomplete="off"><kbd>/</kbd></form>
-<a class="source" href="https://melvor2wiki.github.io/#" target="_blank" rel="noopener">Вики на английском</a>
+<button class="button suggest-button" type="button" id="suggest-edit">Предложить правку</button>
 </div></header>
 <div class="layout">
 <aside class="sidebar"><nav aria-label="Разделы вики">
@@ -23,14 +26,24 @@
 <a href="#/" data-nav="home"><i>⌂</i>Главная</a>
 <a href="#/guides" data-nav="guides"><i>✧</i>Руководства</a>
 <p>СПРАВОЧНИК</p>
-<a href="#/skills" data-nav="skills"><i>⚒</i>Навыки</a>
-<a href="#/items" data-nav="items"><i>◇</i>Предметы</a>
+<a href="#/skills" data-nav="skills"><i data-icon="Mining">⚒</i>Навыки</a>
+<a href="#/items" data-nav="items"><i data-icon="StoneSword">◇</i>Предметы</a>
 <a href="#/monsters" data-nav="monsters"><i>⚔</i>Монстры</a>
 <a href="#/quests" data-nav="quests"><i>☷</i>Задания</a>
 <a href="#/dungeons" data-nav="dungeons"><i>♜</i>Подземелья</a>
 </nav><div class="sidebar-foot"><span></span> Ранний доступ</div></aside>
 <main id="main"></main>
 </div>
-<footer class="footer"><span>Melvor II Вики · Фанатский справочник</span><a href="https://github.com/melvor2wiki/melvor2wiki.github.io" target="_blank" rel="noopener">Источник данных</a></footer>
+<footer class="footer"><span>Melvor II Вики · Фанатский справочник</span><div class="footer-links"><a href="https://melvor2wiki.github.io/#" target="_blank" rel="noopener">Вики на английском</a><a href="https://github.com/melvor2wiki/melvor2wiki.github.io" target="_blank" rel="noopener">Источник данных</a></div></footer>
+<dialog id="suggestion" aria-labelledby="suggestion-title">
+<div class="suggestion-head"><h2 id="suggestion-title">Предложить правку</h2><button id="close-suggestion" class="close-suggestion" type="button" aria-label="Закрыть">×</button></div>
+<p id="suggestion-page" class="muted"></p>
+<form id="suggestion-form">
+<label for="suggestion-message">Что нужно исправить?</label>
+<textarea id="suggestion-message" name="message" rows="5" maxlength="2000" required autofocus placeholder="Укажите, что расходится с игрой или источником"></textarea>
+<button type="submit" class="button">Отправить</button>
+</form>
+<p id="suggestion-status" role="status" hidden></p>
+</dialog>
 </body>
 </html>

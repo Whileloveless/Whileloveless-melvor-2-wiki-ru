@@ -1,0 +1,6 @@
+CREATE TABLE suggestions (
+  id TEXT PRIMARY KEY NOT NULL,
+  page TEXT NOT NULL CHECK (length(page) BETWEEN 2 AND 300),
+  message TEXT NOT NULL CHECK (length(message) BETWEEN 1 AND 2000),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

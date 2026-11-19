@@ -1,5 +1,6 @@
 "use strict";
 const data = globalThis.MELVOR_DATA;
+const icons = globalThis.MELVOR_ICONS;
 const main = document.querySelector("main");
 const search = document.querySelector(".search");
 const searchInput = search.elements.q;
@@ -138,15 +139,26 @@ function entry(section, id) {
 function titleFor(section, id) {
   return localName(id, entry(section, id)?.name);
 }
+function iconMarkup(section, id) {
+  const index = icons?.[section]?.[id] ??
+    (section === "skills" || section === "items" ? icons?.fallback : undefined);
+  if (!Number.isInteger(index)) return "";
+  const x = index % icons.columns;
+  const y = Math.floor(index / icons.columns);
+  return '<span class="entity-icon" aria-hidden="true" style="--icon-x:' + x +
+    ';--icon-y:' + y + ';--icon-cols:' + icons.columns + ';--icon-rows:' + icons.rows + '"></span>';
+}
 function entity(section, id, fallback) {
-  return entry(section,id) ? '<a href="' + path(section,id) + '">' + esc(titleFor(section,id)) + '</a>' : esc(localName(id,fallback));
+  return entry(section,id) ? '<a href="' + path(section,id) + '">' + iconMarkup(section,id) + esc(titleFor(section,id)) + '</a>' : esc(localName(id,fallback));
 }
 function sourceLink(url, caption = "Статья на английском") {
   return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(caption) + '</a>';
 }
 function card(section, title, subtitle, id) {
+  const icon = section === "skills" ? iconMarkup("skills","Mining") :
+    section === "items" ? iconMarkup("items","StoneSword") : "";
   return '<a class="card" href="' + path(section,id) + '"><span class="glyph ' + section + '" aria-hidden="true">' +
-    groups[section][1] + '</span><div><h3>' + esc(title) + '</h3><p>' + esc(subtitle) + '</p></div></a>';
+    (icon || groups[section][1]) + '</span><div><h3>' + esc(title) + '</h3><p>' + esc(subtitle) + '</p></div></a>';
 }
 function home() {
   main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
@@ -157,10 +169,10 @@ function home() {
     '</div></section><section class="section"><h2>Руководства</h2><div class="reading">' +
     Object.entries(guides).map(([id,g]) => card("guides",g.name,g.subtitle,id)).join("") + '</div></section>';
 }
-function heading(section, title, subtitle, detail) {
+function heading(section, title, subtitle, detailId) {
   return '<div class="crumb"><a href="#/">Главная</a>' + (section ? ' / ' +
-    (detail ? '<a href="' + path(section) + '">' + groups[section][0] + '</a>' : groups[section][0]) : '') +
-    '</div><header class="page-head"><h1>' + esc(title) + '</h1>' +
+    (detailId ? '<a href="' + path(section) + '">' + groups[section][0] + '</a>' : groups[section][0]) : '') +
+    '</div><header class="page-head"><h1>' + (detailId ? iconMarkup(section,detailId) : "") + esc(title) + '</h1>' +
     (subtitle ? '<p class="muted">' + esc(subtitle) + '</p>' : '') + '</header>';
 }
 function table(headers, rows) {
@@ -190,7 +202,7 @@ function recipeTable(rows, showCreationTime = false) {
   const hasTime = showCreationTime && rows.some(row => row.creationSeconds != null);
   if (hasTime) headers.push("Базовое время");
   return table(headers, rows.map(r => {
-    const cells = [esc(localName(r.id,r.name)) + "<small>" + esc(recipeNames[r.kind] || r.kind) + "</small>", reqs(r.requirements) || "—",
+    const cells = [iconMarkup("actions",r.id) + esc(localName(r.id,r.name)) + "<small>" + esc(recipeNames[r.kind] || r.kind) + "</small>", reqs(r.requirements) || "—",
       number(r.xp), r.inputs.map(([id,count]) => entity("items",id) + " × " + number(count)).join("<br>") || "—",
       r.outputs.map(([id,count,max]) => entity("items",id) + " × " + quantity(count,max)).join("<br>") || "—"];
     if (hasTime) cells.push(r.creationSeconds == null ? "—" : number(r.creationSeconds) + " с");
@@ -260,7 +272,8 @@ function renderDetail(section, id) {
     body = (skillNotes[id] ? "<p>" + esc(skillNotes[id]) + "</p>" : "") +
       sectionBlock("Требования по уровню",reqs(row.requirements)) +
       sectionBlock("Ориентиры прокачки",rates.length ? "<p class=\"muted\">Базовые оценки источника. Дополнительные требования действий сохраняются.</p>" +
-        table(["Уровень","Действие","Опыт / с"],rates.map(([lv,key,label,xp]) => [number(lv),esc(localName(key,label)),number(xp)])) : "") +
+        table(["Уровень","Действие","Опыт / с"],rates.map(([lv,key,label,xp]) => [
+          number(lv),iconMarkup("actions",key) + esc(localName(key,label)),number(xp)])) : "") +
       sectionBlock("Действия и рецепты",available.length ? recipeTable(available) : "") +
       "<p>" + sourceLink(upstream + "guide?id=" + encodeURIComponent(id),"Руководство по навыку на английском") + "</p>";
   } else if (section === "items") {
@@ -287,7 +300,7 @@ function renderDetail(section, id) {
   }
   const reference = section === "guides" ? sourceLink(steam,"Официальные новости игры") :
     sourceLink(upstream + "scheda?" + new URLSearchParams({id:groups[section][3] + "/MelvorBase:" + id}));
-  main.innerHTML = '<article class="article">' + heading(section,name, row.name !== name ? row.name : "",true) +
+  main.innerHTML = '<article class="article">' + heading(section,name, row.name !== name ? row.name : "",id) +
     body + sectionBlock("Источник","<p>" + reference + "</p>") + "</article>";
 }
 function list(section) {
@@ -395,4 +408,9 @@ document.addEventListener("keydown",event => {
   }
 });
 window.addEventListener("hashchange",render);
+document.querySelectorAll("[data-icon]").forEach(element => {
+  const { icon } = element.dataset;
+  const markup = iconMarkup(icon === "Mining" ? "skills" : "items",icon);
+  if (markup) element.innerHTML = markup;
+});
 render();
