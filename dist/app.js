@@ -148,8 +148,9 @@ function iconMarkup(section, id) {
   return '<span class="entity-icon" aria-hidden="true" style="--icon-x:' + x +
     ';--icon-y:' + y + ';--icon-cols:' + icons.columns + ';--icon-rows:' + icons.rows + '"></span>';
 }
-function entity(section, id, fallback) {
-  return entry(section,id) ? '<a href="' + path(section,id) + '">' + iconMarkup(section,id) + esc(titleFor(section,id)) + '</a>' : esc(localName(id,fallback));
+function entity(section, id, fallback, label) {
+  return entry(section,id) ? '<a href="' + path(section,id) + '">' + iconMarkup(section,id) +
+    esc(label || titleFor(section,id)) + '</a>' : esc(localName(id,fallback));
 }
 function sourceLink(url, caption = "Статья на английском") {
   return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(caption) + '</a>';
@@ -164,7 +165,7 @@ function home() {
   main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
     '<h1>Melvor <b>II</b> Вики</h1><p>Навыки, предметы, монстры и задания в мире Melvor Idle 2. Найдите нужное или начните с руководства.</p>' +
     '<a class="button" href="#/guides/start">С чего начать</a></div></section>' +
-    '<section class="section"><h2>Разделы вики</h2><div class="grid">' +
+    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="#/catalog">Полный каталог</a></div><div class="grid">' +
     Object.entries(groups).map(([key,[title,,desc]]) => card(key,title,desc)).join("") +
     '</div></section><section class="section"><h2>Руководства</h2><div class="reading">' +
     Object.entries(guides).map(([id,g]) => card("guides",g.name,g.subtitle,id)).join("") + '</div></section>';
@@ -303,17 +304,23 @@ function renderDetail(section, id) {
   main.innerHTML = '<article class="article">' + heading(section,name, row.name !== name ? row.name : "",id) +
     body + sectionBlock("Источник","<p>" + reference + "</p>") + "</article>";
 }
-function list(section) {
+function list(section, articleIndex) {
   const query = new URLSearchParams(location.hash.split("?")[1]).get("q") || "";
   const searching = section === "search";
   const source = searching ? Object.keys(groups) : [section];
   const rows = source.flatMap(kind => Object.entries(kind === "guides" ? guides : data[kind])
-    .map(([id,row]) => ({id,kind,row,name:localName(id,row.name)})));
+    .map(([id,row]) => {
+      const fullKey = articleIndex && wikiSections[kind] + "/MelvorBase:" + id;
+      const name = articleIndex?.[fullKey]?.[0] || localName(id,row.name);
+      return {id,kind,row,name};
+    }));
   const order = (a,b) => collator.compare(a.name,b.name);
   rows.sort(order);
   if (section === "guides") {
     main.innerHTML = heading(section,groups[section][0],groups[section][2]) +
-      '<div class="reading">' + rows.map(r => card(section,r.name,r.row.subtitle,r.id)).join("") + "</div>";
+      '<div class="reading">' + rows.map(r => card(section,r.name,r.row.subtitle,r.id)).join("") +
+      '</div><p><a class="button secondary" href="' + path("article","#/guides") +
+      '">Руководства по всем навыкам</a></p>';
     return;
   }
   const types = {
@@ -346,7 +353,7 @@ function list(section) {
     const detailLabel = section === "monsters" ? "Боевой уровень" :
       section === "items" ? "Цена продажи" : section === "dungeons" ? "Сложность" : "Раздел";
     results.innerHTML = table(["Название",detailLabel],visible.map(({id,kind,row,name}) => [
-      entity(kind,id) + (name !== row.name ? "<small>" + esc(row.name) + "</small>" : ""),
+      entity(kind,id,null,name) + (name !== row.name ? "<small>" + esc(row.name) + "</small>" : ""),
       section === "monsters" ? number(row.combatLevel) : section === "items" ? (row.price == null ? "—" : number(row.price) + " зол.") :
       section === "dungeons" ? esc(labels[row.difficulty] || row.difficulty) : esc(groups[kind][0]) ])) +
       (max > 1 ? '<div class="pager"><button type="button" class="button secondary" data-page="-1"' +
@@ -381,11 +388,35 @@ function render() {
     else a.removeAttribute("aria-current");
   });
   if (!section) home();
+  else if ((section === "catalog" || section === "search") && !id && typeof renderWikiCatalog === "function") {
+    renderWikiCatalog(section === "search");
+  }
   else if (section === "search" && !id) list(section);
+  else if (section === "article" && id && typeof renderWikiArticle === "function") {
+    try { renderWikiArticle(decodeURIComponent(id)); }
+    catch (error) {
+      if (!(error instanceof URIError)) throw error;
+      missing();
+    }
+  }
   else if (!Object.hasOwn(groups,section)) missing();
+  else if (!id && typeof wikiPack === "function" && Object.hasOwn(wikiSections,section)) {
+    const requested = location.hash;
+    main.innerHTML = heading(section,groups[section][0],groups[section][2]);
+    wikiPack("article-index").then(index => {
+      if (location.hash === requested) list(section,index);
+    }, () => {
+      if (location.hash === requested) list(section);
+    });
+  }
   else if (!id) list(section);
   else {
-    try { renderDetail(section,decodeURIComponent(id)); }
+    try {
+      const decoded = decodeURIComponent(id);
+      if (typeof renderWikiArticle === "function" && Object.hasOwn(wikiSections,section) && entry(section,decoded)) {
+        renderWikiArticle(wikiSections[section] + "/MelvorBase:" + decoded,section,decoded,() => renderDetail(section,decoded));
+      } else renderDetail(section,decoded);
+    }
     catch (error) {
       if (!(error instanceof URIError)) throw error;
       missing();

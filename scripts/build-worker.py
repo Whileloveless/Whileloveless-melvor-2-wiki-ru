@@ -14,10 +14,11 @@ for file in sorted((root / "dist").iterdir()):
         ".js": "text/javascript; charset=utf-8",
         ".css": "text/css; charset=utf-8",
         ".webp": "image/webp",
+        ".gz": "application/gzip",
     }.get(file.suffix)
     if mime is None or not file.is_file():
         continue
-    binary = file.suffix == ".webp"
+    binary = file.suffix in {".webp", ".gz"}
     content = base64.b64encode(file.read_bytes()).decode("ascii") if binary else file.read_text()
     assets["/" + file.name] = [mime, content, binary]
 
