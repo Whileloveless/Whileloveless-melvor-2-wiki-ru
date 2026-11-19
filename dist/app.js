@@ -6,6 +6,9 @@ const searchInput = search.elements.q;
 const upstream = "https://melvor2wiki.github.io/#/";
 const steam = "https://steamcommunity.com/app/3218350/allnews/?l=english";
 const fmt = new Intl.NumberFormat("ru", { maximumFractionDigits: 2 });
+const percent = new Intl.NumberFormat("ru", { style:"percent", maximumFractionDigits: 2 });
+const smallPercent = new Intl.NumberFormat("ru", { style:"percent", maximumFractionDigits: 5 });
+const formatChance = value => (value > 0 && value < 0.0001 ? smallPercent : percent).format(value);
 const collator = new Intl.Collator("ru", { numeric: true });
 const number = value => value == null ? "—" : fmt.format(value);
 const esc = input => String(input ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
@@ -47,7 +50,7 @@ const ru = {
  Golbin:"Голбин", GolbinScout:"Голбин-разведчик", GolbinAmbusher:"Голбин-засадник", Hobgolbin:"Хобголбин",
  GolbinForest:"Лес голбинов", HobgolbinCamp:"Лагерь хобголбинов",
  SeedsofSustenance:"Семена пропитания", PackingLunch:"Обед с собой", HarvestFestival:"Праздник урожая",
- MQ1:"Подготовка к бою", MQ4:"Разведка в тумане", MQ6:"Побег из подземелья",
+ MQ1:"Подготовка к бою", MQ4:"Разведка в тумане", MQ6:"Побег из подземелья", Fisherman:"Рыбак",
  NormalTree:"Обычное дерево", ShallowPools:"Мелководье"
 };
 const materials = {
@@ -64,7 +67,29 @@ const gear = { Sword:["меч",0], Dagger:["кинжал",0], Shield:["щит",0
 const labels = { Easy:"Лёгкая", Normal:"Обычная", Medium:"Средняя", Hard:"Высокая", VeryHard:"Очень высокая",
   Extreme:"Экстремальная", Melee:"Ближний бой", MainQuests:"Сюжетное", SideQuests:"Побочное", Equipment:"Снаряжение",
   Food:"Еда", Weapon:"Оружие", Potion:"Зелье", Seed:"Семена", Rune:"Руна", Ammo:"Боеприпасы", Compost:"Компост",
-  Charges:"Заряды", ItemContainer:"Контейнер", Readable:"Читаемый предмет", Upgrade:"Улучшение" };
+  Charges:"Заряды", ItemContainer:"Контейнер", Readable:"Читаемый предмет", Upgrade:"Улучшение",
+  Toolbelt:"Пояс инструментов", Openable:"Контейнер", HuntingTrap:"Охотничья ловушка",
+  Bury:"Закапывание", FishingBait:"Рыболовная наживка" };
+const combatStatLabels = {
+  AttackInterval:"Интервал между ходами", MeleeStrengthBonus:"Сила ближнего боя",
+  RangedStrengthBonus:"Сила дальнего боя", MagicDamageBonus:"Магический урон", SpellMaxHit:"Максимальный урон заклинания",
+  MaximumWard:"Максимальный барьер", Armour:"Броня", Lifesteal:"Вампиризм",
+  PowerRatings:"Рейтинг силы", ProtectionRatings:"Рейтинг защиты"
+};
+const stanceLabels = {
+  Stab:"колющий удар", Slash:"рубящий удар", Crush:"дробящий удар", Block:"блокирование",
+  Accurate:"точный выстрел", Powerful:"мощный выстрел", LongRange:"дальний выстрел",
+  Offensive:"усиленное заклинание", Defensive:"сосредоточенное заклинание"
+};
+const relationKinds = {
+  Enemy:["Монстр","monsters"], Dungeon:["Подземелье","dungeons"], Item:["Контейнер","items"],
+  Quest:["Задание","quests"], ThievingRecipe:["Воровство"], ShopPurchase:["Магазин"]
+};
+const chanceBasis = {
+  kill:"за победу", clear:"за прохождение", open:"за открытие",
+  stage:"за успешный этап кражи", target:"за завершение кражи"
+};
+const currencies = {GoldPieces:"Золото",PrayerPoints:"Очки молитвы",SlayerCoins:"Монеты истребителя"};
 const recipeNames = { ArtisanRecipe:"Ремесленный рецепт", MiningRecipe:"Добыча", WoodcuttingRecipe:"Лесозаготовка",
  FishingRecipe:"Рыбалка", CookingRecipe:"Кулинария", FiremakingRecipe:"Разведение огня", FarmingRecipe:"Земледелие",
  GrainMillRecipe:"Помол", HerbloreRecipe:"Зельеварение", ThievingRecipe:"Воровство" };
@@ -154,14 +179,72 @@ function reqs(list) {
 }
 function goodsTable(rows) {
   if (!rows?.length) return "";
-  return table(["Предмет","Количество","Шанс"],rows.map(([id,count,max,chance]) => [entity("items",id),
-    max != null && max !== count ? number(count) + "–" + number(max) : number(count), chance == null ? "—" : number(chance * 100) + "%"]));
+  return table(["Предмет","Количество","Шанс"],rows.map(([id,count,max,chance]) =>
+    [entity("items",id),quantity(count,max),chance == null ? "—" : formatChance(chance)]));
 }
-function recipeTable(rows) {
-  return table(["Действие","Требования по уровню","Базовый опыт","Ингредиенты","Предметы"], rows.map(r =>
-    [esc(localName(r.id,r.name)) + "<small>" + esc(recipeNames[r.kind] || r.kind) + "</small>", reqs(r.requirements) || "—",
-    number(r.xp), r.inputs.map(([id,count]) => entity("items",id) + " × " + number(count)).join("<br>") || "—",
-    r.outputs.map(([id,count,max]) => entity("items",id) + " × " + number(count) + (max != null && max !== count ? "–" + number(max) : "")).join("<br>") || "—"]));
+function quantity(count,max) {
+  return max != null && max !== count ? number(count) + "–" + number(max) : number(count);
+}
+function recipeTable(rows, showCreationTime = false) {
+  const headers = ["Действие","Требования по уровню","Базовый опыт","Ингредиенты","Предметы"];
+  const hasTime = showCreationTime && rows.some(row => row.creationSeconds != null);
+  if (hasTime) headers.push("Базовое время");
+  return table(headers, rows.map(r => {
+    const cells = [esc(localName(r.id,r.name)) + "<small>" + esc(recipeNames[r.kind] || r.kind) + "</small>", reqs(r.requirements) || "—",
+      number(r.xp), r.inputs.map(([id,count]) => entity("items",id) + " × " + number(count)).join("<br>") || "—",
+      r.outputs.map(([id,count,max]) => entity("items",id) + " × " + quantity(count,max)).join("<br>") || "—"];
+    if (hasTime) cells.push(r.creationSeconds == null ? "—" : number(r.creationSeconds) + " с");
+    return cells;
+  }));
+}
+function relationTable(rows, isSource) {
+  if (!rows?.length) return "";
+  const headers = [isSource ? "Источник" : "Действие","Количество"];
+  const hasChance = isSource && rows.some(row => row[5] != null);
+  if (hasChance) headers.push("Базовый шанс");
+  return table(headers,rows.map(([kind,id,name,count,max,chance,basis]) => {
+    const [label,section] = relationKinds[kind];
+    const link = section ? entity(section,id,name) : sourceLink(
+      upstream + "scheda?" + new URLSearchParams({id:kind + "/MelvorBase:" + id}),localName(id,name));
+    const cells = [link + "<small>" + label + "</small>",quantity(count,max)];
+    if (hasChance) cells.push(chance == null ? "—" : formatChance(chance) +
+      (chanceBasis[basis] ? "<small>" + chanceBasis[basis] + "</small>" : ""));
+    return cells;
+  }));
+}
+function itemCombatStats(stats) {
+  if (!stats?.length) return "";
+  return table(["Характеристика","Значение"],stats.map(([id,value,damageType]) => {
+    let label = combatStatLabels[id];
+    if (damageType) label += " · " + (damageType === "Normal" ? "обычный урон" : damageType);
+    if (!label) {
+      const [,stance,type] = id.match(/^(.*?)(Attack|Defence)Bonus$/) || [];
+      label = stanceLabels[stance] ? (type === "Attack" ? "Бонус атаки" : "Бонус защиты") + " · " + stanceLabels[stance] : id;
+    }
+    let formatted = number(value);
+    if (id === "AttackInterval") formatted = number(value / 1000) + " с";
+    if (id === "MagicDamageBonus" || id === "Lifesteal") formatted = percent.format(value);
+    return [esc(label),formatted];
+  }));
+}
+function itemBody(id, row) {
+  const produced = data.recipes.filter(r => r.outputs.some(x => x[0] === id));
+  const used = data.recipes.filter(r => r.inputs.some(x => x[0] === id));
+  const fields = [["Цена продажи",row.price == null ? "—" : number(row.price) + " зол."],
+    ["Тип",row.types.map(t => labels[t] || t).join(", ") || "Ресурс"]];
+  const description = row.description ? '<p' + (row.descriptionLanguage ? ' lang="en"' : '') +
+    '>' + esc(row.description) + '</p>' : "";
+  const healing = row.healing != null ? "<p>Восстанавливает <strong>" + number(row.healing) +
+    "</strong> ед. здоровья при употреблении.</p>" : "";
+  const bury = row.bury ? facts([[currencies[row.bury[0]] || row.bury[0], "+" + number(row.bury[1])]]) : "";
+  return sectionBlock("Описание",description + healing) + facts(fields) +
+    sectionBlock("Характеристики и эффекты",bury + itemCombatStats(row.stats)) +
+    sectionBlock("Требования по уровню",reqs(row.requirements)) +
+    sectionBlock("Получение в рецептах",produced.length ? recipeTable(produced,true) : "") +
+    sectionBlock("Добыча и награды",relationTable(row.sources,true)) +
+    sectionBlock("Содержимое",goodsTable(row.contents)) +
+    sectionBlock("Использование в рецептах",used.length ? recipeTable(used,true) : "") +
+    sectionBlock("Задания и обмен",relationTable(row.uses,false));
 }
 function renderDetail(section, id) {
   const row = entry(section,id);
@@ -181,15 +264,7 @@ function renderDetail(section, id) {
       sectionBlock("Действия и рецепты",available.length ? recipeTable(available) : "") +
       "<p>" + sourceLink(upstream + "guide?id=" + encodeURIComponent(id),"Руководство по навыку на английском") + "</p>";
   } else if (section === "items") {
-    const produced = data.recipes.filter(r => r.outputs.some(x => x[0] === id));
-    const used = data.recipes.filter(r => r.inputs.some(x => x[0] === id));
-    const monsters = Object.entries(data.monsters).filter(([,m]) => m.drops.some(x => x[0] === id));
-    body = facts([["Цена продажи",row.price == null ? "—" : number(row.price) + " зол."],
-      ["Свойства",row.types.map(t => labels[t] || t).join(", ") || "—"]]) +
-      sectionBlock("Требования по уровню",reqs(row.requirements)) +
-      sectionBlock("Получение в рецептах",produced.length ? recipeTable(produced) : "") +
-      sectionBlock("Гарантированная добыча",monsters.length ? "<ul>" + monsters.map(([key]) => "<li>" + entity("monsters",key) + "</li>").join("") + "</ul>" : "") +
-      sectionBlock("Использование в рецептах",used.length ? recipeTable(used) : "");
+    body = itemBody(id,row);
   } else if (section === "monsters") {
     body = facts([["Боевой уровень",number(row.combatLevel)],["Здоровье",number(row.hitpoints)],
       ["Интервал атаки",row.attackSeconds == null ? "—" : number(row.attackSeconds) + " с"],
