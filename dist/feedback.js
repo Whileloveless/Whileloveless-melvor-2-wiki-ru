@@ -7,7 +7,9 @@ const suggestionForm = document.querySelector("#suggestion-form");
 const suggestionMessage = document.querySelector("#suggestion-message");
 const suggestionPage = document.querySelector("#suggestion-page");
 const suggestionStatus = document.querySelector("#suggestion-status");
+const suggestionSignin = document.querySelector("#suggestion-signin");
 const sendSuggestion = suggestionForm.querySelector('button[type="submit"]');
+const suggestionDraftKey = "melvor-suggestion-draft";
 
 let suggestionRoute = "#/";
 let sendingSuggestion = false;
@@ -18,14 +20,24 @@ function showSuggestionStatus(message, state) {
   suggestionStatus.hidden = !message;
 }
 
-suggestButton.addEventListener("click", () => {
-  const route = location.hash;
+function openSuggestion() {
+  const route = wikiRoute();
   suggestionRoute = route.length <= 300 && /^#\/[^\s<>]*$/.test(route) ? route : "#/";
   const title = document.querySelector("main h1")?.textContent || "Главная";
   suggestionPage.textContent = "Страница · " + title;
   showSuggestionStatus("", "");
+  suggestionSignin.hidden = true;
   suggestionForm.hidden = false;
   suggestionDialog.showModal();
+}
+
+suggestButton.addEventListener("click",openSuggestion);
+suggestionSignin.addEventListener("click", () => {
+  try {
+    sessionStorage.setItem(suggestionDraftKey,JSON.stringify({page:suggestionRoute,message:suggestionMessage.value}));
+  } catch {
+    // The current message remains visible when local browser storage is unavailable.
+  }
 });
 
 closeSuggestion.addEventListener("click", () => suggestionDialog.close());
@@ -48,6 +60,7 @@ suggestionForm.addEventListener("submit", async event => {
   sendSuggestion.disabled = true;
   closeSuggestion.disabled = true;
   suggestionMessage.readOnly = true;
+  suggestionSignin.hidden = true;
   showSuggestionStatus("Отправляем предложение…", "");
 
   try {
@@ -56,6 +69,13 @@ suggestionForm.addEventListener("submit", async event => {
       headers:{ "Content-Type":"application/json" },
       body:JSON.stringify({page:suggestionRoute,message})
     });
+    if (response.status === 401) {
+      const destination = location.pathname + location.search;
+      suggestionSignin.href = "/signin-with-chatgpt?" + new URLSearchParams({return_to:destination});
+      suggestionSignin.hidden = false;
+      showSuggestionStatus("Войдите через ChatGPT, чтобы отправить правку.", "");
+      return;
+    }
     if (response.status !== 201 || (await response.json()).saved !== true) {
       throw new Error("Suggestion not saved");
     }
@@ -72,3 +92,14 @@ suggestionForm.addEventListener("submit", async event => {
     (suggestionForm.hidden ? closeSuggestion : suggestionMessage).focus();
   }
 });
+
+try {
+  const draft = JSON.parse(sessionStorage.getItem(suggestionDraftKey));
+  if (draft?.page === wikiRoute() && typeof draft.message === "string") {
+    sessionStorage.removeItem(suggestionDraftKey);
+    suggestionMessage.value = draft.message;
+    openSuggestion();
+  }
+} catch {
+  // The form works without local browser storage.
+}

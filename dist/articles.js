@@ -60,7 +60,11 @@ function wikiSourcePage(key) {
 }
 
 function setWikiTitle(title) {
-  document.title = title + " — Melvor II Вики";
+  document.title = title + " — Melvor Idle 2 Вики";
+}
+
+function linkArticlePaths(content) {
+  return content.replaceAll('href="#/"','href="/"').replaceAll('href="#/','href="/wiki/');
 }
 
 function bindWikiArticleControls(root, key) {
@@ -103,7 +107,7 @@ function bindWikiArticleControls(root, key) {
       target.scrollIntoView({block:"start"});
     }
   });
-  const anchor = new URLSearchParams(location.hash.split("?")[1]).get("section");
+  const anchor = routeParams().get("section");
   if (anchor) root.querySelector("#" + CSS.escape(anchor))?.scrollIntoView({block:"start"});
 }
 
@@ -118,13 +122,16 @@ function articleError(title, url, fallback) {
 }
 
 async function renderWikiArticle(key, section, id, fallback) {
-  const requested = location.hash;
+  const requested = wikiRoute();
+  const serverArticle = main.dataset?.ssrArticle === key;
   const initial = section && id && entry(section,id) ? titleFor(section,id) : "Статья";
-  main.innerHTML = heading(section,initial,"",id) + '<p role="status" class="muted">Загружаем статью…</p>';
-  setWikiTitle(initial);
+  if (!serverArticle) {
+    main.innerHTML = heading(section,initial,"",id) + '<p role="status" class="muted">Загружаем статью…</p>';
+    setWikiTitle(initial);
+  }
   try {
     const index = await wikiPack("article-index");
-    if (location.hash !== requested) return;
+    if (wikiRoute() !== requested) return;
     if (!Object.hasOwn(index,key)) {
       if (fallback) fallback();
       else missing();
@@ -132,15 +139,17 @@ async function renderWikiArticle(key, section, id, fallback) {
     }
     const [title, original, , packId] = index[key];
     const pack = await wikiPack("article-" + String(packId).padStart(3,"0"));
-    if (location.hash !== requested) return;
+    if (wikiRoute() !== requested) return;
     if (!Object.hasOwn(pack,key)) throw new Error("Article missing from archive");
     const [content, calculator] = pack[key];
-    main.innerHTML = '<article class="article wiki-page">' + heading(section,title,original === title ? "" : original,id) +
-      '<div class="wiki-article-content">' + content + '</div>' +
-      sectionBlock("Источник",'<p>' + sourceLink(wikiSourcePage(key)) + '</p>') + '</article>';
+    if (!serverArticle) {
+      main.innerHTML = '<article class="article wiki-page">' + heading(section,title,original === title ? "" : original,id) +
+        '<div class="wiki-article-content">' + linkArticlePaths(content) + '</div>' +
+        sectionBlock("Источник",'<p>' + sourceLink(wikiSourcePage(key)) + '</p>') + '</article>';
+    }
     const root = main.querySelector(".wiki-article-content");
     if (!root) return;
-    setWikiTitle(title);
+    if (!serverArticle) setWikiTitle(title);
     if (typeof bindWikiDropCalculator === "function") bindWikiDropCalculator(root,calculator);
     if (key.startsWith("#/guide?") && typeof bindWikiTraining === "function") {
       const skill = new URLSearchParams(key.split("?")[1]).get("id");
@@ -151,27 +160,29 @@ async function renderWikiArticle(key, section, id, fallback) {
     }
     bindWikiArticleControls(root,key);
   } catch (error) {
-    if (location.hash === requested) articleError(initial,wikiSourcePage(key),fallback);
+    if (!serverArticle && wikiRoute() === requested) articleError(initial,wikiSourcePage(key),fallback);
   }
 }
 
 async function renderWikiCatalog(isSearch) {
-  const requested = location.hash;
-  const term = new URLSearchParams(requested.split("?")[1]).get("q") || "";
+  const requested = wikiRoute();
+  const term = routeParams().get("q") || "";
   const title = isSearch ? "Поиск по вики" : "Полный каталог";
-  main.innerHTML = heading(null,title,"") + '<p role="status" class="muted">Загружаем каталог…</p>';
+  if (!main.querySelector("h1")?.textContent) {
+    main.innerHTML = heading(null,title,"") + '<p role="status" class="muted">Загружаем каталог…</p>';
+  }
   setWikiTitle(title);
   let index;
   try {
     index = await wikiPack("article-index");
   } catch {
-    if (location.hash === requested) {
+    if (wikiRoute() === requested) {
       if (isSearch) list("search");
       else articleError(title,wikiSource + "#",null);
     }
     return;
   }
-  if (location.hash !== requested) return;
+  if (wikiRoute() !== requested) return;
   const rows = Object.entries(index).sort(([,a],[,b]) =>
     compareWiki.compare(a[0],b[0]) || compareWiki.compare(a[1],b[1]));
   const typeCounts = new Map();
@@ -187,13 +198,14 @@ async function renderWikiCatalog(isSearch) {
   const kindFilter = main.querySelector("#wiki-kind");
   const results = main.querySelector("#wiki-list");
   const count = main.querySelector("#wiki-count");
-  let page = 1;
+  let page = currentWikiPage();
   const limit = 30;
   function draw() {
     const chosen = kindFilter.value;
     const filtered = rows.filter(([key,[translated,original,kind]]) => (!chosen || kind === chosen) &&
       matches(filter.value,key,translated,original));
     const total = Math.max(1,Math.ceil(filtered.length / limit));
+    page = Math.min(page,total);
     count.textContent = "Статей: " + number(filtered.length);
     if (!filtered.length) {
       results.innerHTML = '<p class="muted">Ничего не найдено.</p>';
@@ -211,7 +223,7 @@ async function renderWikiCatalog(isSearch) {
         number(total) + '</span><button type="button" class="button secondary" data-wiki-page="1"' +
         (page === total ? " disabled" : "") + '>Далее</button></div>');
   }
-  function refilter() { page = 1; draw(); }
+  function refilter() { page = 1; setWikiPage(page); draw(); }
   filter.addEventListener("input",refilter);
   kindFilter.addEventListener("change",refilter);
   results.addEventListener("click",event => {
@@ -219,6 +231,7 @@ async function renderWikiCatalog(isSearch) {
     if (!move) return;
     const offset = move.dataset.wikiPage;
     page += Number(offset);
+    setWikiPage(page);
     draw();
     (results.querySelector('[data-wiki-page="' + offset + '"]:enabled') ||
       results.querySelector("[data-wiki-page]:enabled"))?.focus();

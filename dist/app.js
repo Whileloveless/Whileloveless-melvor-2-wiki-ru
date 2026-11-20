@@ -13,7 +13,26 @@ const formatChance = value => (value > 0 && value < 0.0001 ? smallPercent : perc
 const collator = new Intl.Collator("ru", { numeric: true });
 const number = value => value == null ? "—" : fmt.format(value);
 const esc = input => String(input ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
-const path = (section, id) => "#/" + section + (id ? "/" + encodeURIComponent(id) : "");
+const path = (section, id) => section ? "/wiki/" + section + (id ? "/" + encodeURIComponent(id) : "") : "/";
+function wikiRoute() {
+  if (location.hash.startsWith("#/")) return location.hash;
+  const pathname = (location.pathname || "/").replace(/\/$/,"");
+  const route = pathname.startsWith("/wiki/") ? pathname.slice(6) : "";
+  return "#/" + route + (location.search || "");
+}
+function routeParams() {
+  return new URLSearchParams(wikiRoute().split("?")[1]);
+}
+function currentWikiPage() {
+  const page = Number(routeParams().get("page"));
+  return Number.isSafeInteger(page) && page >= 1 ? page : 1;
+}
+function setWikiPage(page) {
+  const params = routeParams();
+  if (page > 1) params.set("page",String(page));
+  else params.delete("page");
+  history.replaceState(null,"",location.pathname + (params.size ? "?" + params : ""));
+}
 const normalize = value => value.toLocaleLowerCase("ru").replaceAll("ё","е").trim();
 const matches = (needle, ...values) => normalize(needle).split(/\s+/).every(term => normalize(values.join(" ")).includes(term));
 const groups = {
@@ -164,14 +183,14 @@ function card(section, title, subtitle, id) {
 function home() {
   main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
     '<h1>Melvor <b>II</b> Вики</h1><p>Навыки, предметы, монстры и задания в мире Melvor Idle 2. Найдите нужное или начните с руководства.</p>' +
-    '<a class="button" href="#/guides/start">С чего начать</a></div></section>' +
-    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="#/catalog">Полный каталог</a></div><div class="grid">' +
+    '<a class="button" href="/wiki/guides/start">С чего начать</a></div></section>' +
+    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="/wiki/catalog">Полный каталог</a></div><div class="grid">' +
     Object.entries(groups).map(([key,[title,,desc]]) => card(key,title,desc)).join("") +
     '</div></section><section class="section"><h2>Руководства</h2><div class="reading">' +
     Object.entries(guides).map(([id,g]) => card("guides",g.name,g.subtitle,id)).join("") + '</div></section>';
 }
 function heading(section, title, subtitle, detailId) {
-  return '<div class="crumb"><a href="#/">Главная</a>' + (section ? ' / ' +
+  return '<div class="crumb"><a href="/">Главная</a>' + (section ? ' / ' +
     (detailId ? '<a href="' + path(section) + '">' + groups[section][0] + '</a>' : groups[section][0]) : '') +
     '</div><header class="page-head"><h1>' + (detailId ? iconMarkup(section,detailId) : "") + esc(title) + '</h1>' +
     (subtitle ? '<p class="muted">' + esc(subtitle) + '</p>' : '') + '</header>';
@@ -305,7 +324,7 @@ function renderDetail(section, id) {
     body + sectionBlock("Источник","<p>" + reference + "</p>") + "</article>";
 }
 function list(section, articleIndex) {
-  const query = new URLSearchParams(location.hash.split("?")[1]).get("q") || "";
+  const query = routeParams().get("q") || "";
   const searching = section === "search";
   const source = searching ? Object.keys(groups) : [section];
   const rows = source.flatMap(kind => Object.entries(kind === "guides" ? guides : data[kind])
@@ -337,13 +356,14 @@ function list(section, articleIndex) {
   const type = document.querySelector("#type");
   const results = document.querySelector("#results");
   const count = document.querySelector("#count");
-  let page = 1;
+  let page = currentWikiPage();
   const pageSize = 30;
   function resultsView() {
     const selected = type?.value;
     const filtered = rows.filter(({id,kind,row,name}) => matches(filter.value,id,name,row.name) &&
       (!selected || (kind === "items" ? row.types.includes(selected) : row.category === selected)));
     const max = Math.max(1,Math.ceil(filtered.length / pageSize));
+    page = Math.min(page,max);
     count.textContent = "Результатов: " + number(filtered.length);
     if (!filtered.length) {
       results.innerHTML = '<p class="muted">Ничего не найдено. Попробуйте другое название.</p>';
@@ -362,6 +382,7 @@ function list(section, articleIndex) {
   }
   function refilter() {
     page = 1;
+    setWikiPage(page);
     resultsView();
   }
   filter.addEventListener("input",refilter);
@@ -371,16 +392,21 @@ function list(section, articleIndex) {
     if (!button || button.disabled) return;
     const direction = Number(button.dataset.page);
     page += direction;
+    setWikiPage(page);
     resultsView();
     (results.querySelector('[data-page="' + direction + '"]:enabled') || results.querySelector(".pager button:enabled"))?.focus();
   });
   resultsView();
 }
 function missing() {
-  main.innerHTML = heading(null,"Страница не найдена","") + '<p><a href="#/">Вернуться на главную</a></p>';
+  main.innerHTML = heading(null,"Страница не найдена","") + '<p><a href="/">Вернуться на главную</a></p>';
 }
 function render() {
-  const [section,id] = location.hash.replace(/^#\/?/,"").split("?")[0].split("/");
+  if (location.hash.startsWith("#/") && typeof history !== "undefined") {
+    const route = location.hash.slice(2);
+    history.replaceState(null,"",route ? "/wiki/" + route : "/");
+  }
+  const [section,id] = wikiRoute().slice(2).split("?")[0].split("/");
   document.querySelectorAll("[data-nav]").forEach(a => {
     const active = a.dataset.nav === (section || "home");
     a.classList.toggle("active",active);
@@ -401,12 +427,12 @@ function render() {
   }
   else if (!Object.hasOwn(groups,section)) missing();
   else if (!id && typeof wikiPack === "function" && Object.hasOwn(wikiSections,section)) {
-    const requested = location.hash;
-    main.innerHTML = heading(section,groups[section][0],groups[section][2]);
+    const requested = wikiRoute();
+    if (!main.querySelector("h1")?.textContent) main.innerHTML = heading(section,groups[section][0],groups[section][2]);
     wikiPack("article-index").then(index => {
-      if (location.hash === requested) list(section,index);
+      if (wikiRoute() === requested) list(section,index);
     }, () => {
-      if (location.hash === requested) list(section);
+      if (wikiRoute() === requested) list(section);
     });
   }
   else if (!id) list(section);
@@ -422,14 +448,16 @@ function render() {
       missing();
     }
   }
-  const title = main.querySelector("h1").textContent;
-  document.title = !section ? "Melvor II Вики — русскоязычный справочник" : title + " — Melvor II Вики";
-  window.scrollTo(0,0);
+  if (!document.querySelector('link[rel="canonical"]')?.href) {
+    const title = main.querySelector("h1")?.textContent;
+    if (title) document.title = !section ? "Melvor Idle 2 Вики на русском — предметы, навыки и гайды" : title + " — Melvor Idle 2 Вики";
+  }
+  if (!location.hash && !routeParams().has("section")) window.scrollTo(0,0);
 }
 search.addEventListener("submit",event => {
   event.preventDefault();
   const q = searchInput.value.trim();
-  if (q) location.hash = "#/search?" + new URLSearchParams({q});
+  if (q) location.assign(path("search") + "?" + new URLSearchParams({q}));
 });
 document.addEventListener("keydown",event => {
   if (event.key === "/" && !event.altKey && !event.ctrlKey && !event.metaKey &&
@@ -438,7 +466,9 @@ document.addEventListener("keydown",event => {
     searchInput.focus();
   }
 });
-window.addEventListener("hashchange",render);
+window.addEventListener("hashchange",() => {
+  if (location.hash.startsWith("#/")) render();
+});
 document.querySelectorAll("[data-icon]").forEach(element => {
   const { icon } = element.dataset;
   const markup = iconMarkup(icon === "Mining" ? "skills" : "items",icon);

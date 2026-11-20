@@ -1,6 +1,8 @@
-"""Bundle the existing wiki files and the feedback endpoint for Sites."""
+"""Bundle the wiki assets, HTML renderer and feedback endpoint for Sites."""
 import base64
+import hashlib
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -19,13 +21,21 @@ for file in sorted((root / "dist").iterdir()):
     if mime is None or not file.is_file():
         continue
     binary = file.suffix in {".webp", ".gz"}
-    content = base64.b64encode(file.read_bytes()).decode("ascii") if binary else file.read_text()
-    assets["/" + file.name] = [mime, content, binary]
+    raw = file.read_bytes()
+    content = base64.b64encode(raw).decode("ascii") if binary else raw.decode("utf-8")
+    etag = '"' + hashlib.sha256(raw).hexdigest()[:32] + '"'
+    assets["/" + file.name] = [mime, content, binary, etag]
+
+client_guides = re.search(r"^const guides = (\{[\s\S]*?^\});$", assets["/app.js"][1], re.MULTILINE)
+if not client_guides:
+    raise ValueError("Missing built-in guides in dist/app.js")
 
 server = output / "dist/server"
 server.mkdir(parents=True, exist_ok=True)
 (server / "index.js").write_text(
     "const assets = " + json.dumps(assets, ensure_ascii=False, separators=(",", ":")) + ";\n"
+    + "const seoGuides = " + client_guides.group(1) + ";\n"
+    + (root / "worker/seo.js").read_text() + "\n"
     + (root / "worker/index.js").read_text()
 )
 for path in (".openai/hosting.json", "drizzle/0000_wiki_suggestions.sql"):

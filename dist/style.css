@@ -41,6 +41,8 @@ h1,h2,h3{font-family:var(--serif);line-height:1.23}h1{font-size:clamp(2rem,4vw,3
 #suggestion-status{margin:12px 0 0}
 #suggestion-status[data-state=error]{color:#ffc1aa}
 #suggestion-status[data-state=success]{color:#a6d8a7}
+#suggestion-signin{margin-top:12px}
+#suggestion-signin[hidden]{display:none}
 #suggestion button:disabled{opacity:.55;cursor:default}
 @media(max-width:1040px){.top-inner{grid-template-columns:176px minmax(140px,1fr) max-content}}
 @media(max-width:690px){.top-inner{justify-content:space-between}.search{order:3;flex-basis:100%}.brand-logo{width:36px;height:36px}.suggest-button{padding:7px 10px;font-size:.84rem}.footer{flex-wrap:wrap}}

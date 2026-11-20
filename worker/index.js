@@ -73,17 +73,21 @@ export default {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
     }
-    const path = url.pathname === "/" ? "/index.html" : url.pathname;
+    const seo = await routeSeo(request,url);
+    if (seo) return seo;
+    const path = url.pathname;
     if (!Object.hasOwn(assets, path)) return new Response("Страница не найдена", { status: 404 });
-    const [type, content, binary] = assets[path];
+    const [type, content, binary, etag] = assets[path];
+    const headers = {
+      "Content-Type": type,
+      "Cache-Control": "private, max-age=0, must-revalidate",
+      "X-Content-Type-Options": "nosniff",
+      "ETag": etag
+    };
+    const validators = request.headers.get("If-None-Match")?.split(",").map(value => value.trim().replace(/^W\//,""));
+    if (validators?.includes(etag) || validators?.includes("*")) return new Response(null,{status:304,headers});
     const body = request.method === "HEAD" ? null :
       binary ? decodeAsset(content) : content;
-    return new Response(body, {
-      headers: {
-        "Content-Type": type,
-        "Cache-Control": "private, max-age=0, must-revalidate",
-        "X-Content-Type-Options": "nosniff"
-      }
-    });
+    return new Response(body,{headers});
   }
 };
