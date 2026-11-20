@@ -37,6 +37,7 @@ test("Russian home, permanent article and illustration work at the repository pa
 test("sitemap points to real HTML pages without hash routes or encoded slashes", async () => {
   const sitemap=await file("sitemap.xml");
   const links=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].replaceAll("&amp;","&"));
+  assert.equal(await file("sitemap.txt"),links.join("\n") + "\n");
   assert.ok(links.length >= 9607);
   assert.equal(new Set(links).size,links.length);
   for (const url of links) {

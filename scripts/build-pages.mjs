@@ -147,10 +147,12 @@ try {
   if (missing.status !== 404) throw new Error("Пропущена страница 404");
   await writeFile(join(output,"404.html"),rewriteHtml(await missing.text(),{missing:true}));
 
+  const addresses = [...canonical];
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    [...canonical].map(address=>'<url><loc>' + escapeHtml(address) + '</loc></url>').join("\n") + "\n</urlset>\n";
+    addresses.map(address=>'<url><loc>' + escapeHtml(address) + '</loc></url>').join("\n") + "\n</urlset>\n";
   await writeFile(join(output,"sitemap.xml"),xml);
+  await writeFile(join(output,"sitemap.txt"),addresses.join("\n") + "\n");
   await writeFile(join(output,"robots.txt"),"User-agent: *\nAllow: /\nSitemap: " + url.origin + base + "/sitemap.xml\n");
   console.log("Страниц в карте сайта: " + canonical.size + " · " + output);
 } finally {
