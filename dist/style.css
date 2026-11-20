@@ -26,7 +26,10 @@ h1,h2,h3{font-family:var(--serif);line-height:1.23}h1{font-size:clamp(2rem,4vw,3
 .glyph .entity-icon,.sidebar .entity-icon{margin:0}
 .glyph .entity-icon{--icon-size:1.7rem}
 .sidebar .entity-icon{--icon-size:1.15rem}
-.footer-links{display:flex;flex-wrap:wrap;gap:6px 18px}
+.footer-notice{max-width:68ch}
+.footer-notice strong{color:var(--ink);font-size:.93rem}
+.footer-notice p{margin:4px 0 0}
+.footer-links{display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px 18px}
 #suggestion{width:min(500px,calc(100% - 28px));max-height:calc(100% - 28px);padding:23px;background:#131e29;color:var(--ink);border:1px solid #475565;border-radius:12px;box-shadow:0 18px 70px #0009}
 #suggestion::backdrop{background:#080d14c4}
 .suggestion-head{display:flex;justify-content:space-between;align-items:center;gap:16px}
