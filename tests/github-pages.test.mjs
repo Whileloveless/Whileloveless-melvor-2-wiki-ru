@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createHash} from "node:crypto";
 import {readFile,stat} from "node:fs/promises";
 import path from "node:path";
 import {test} from "node:test";
@@ -17,13 +18,18 @@ test("Russian home, permanent article and illustration work at the repository pa
   assert.ok(home.includes('rel="canonical" href="' + canonical("/") + '"'));
   assert.ok(home.includes('href="' + base + '/wiki/items/"'));
   assert.ok(home.includes('src="' + base + '/site-config.js"'));
-  assert.ok(home.includes('src="' + base + '/app.js"'));
+  const app=await file("app.js");
+  const digest=createHash("sha256").update(app).digest("hex").slice(0,12);
+  const entryScript="app." + digest + ".js";
+  assert.ok(home.includes('src="' + base + '/' + entryScript + '"'));
+  assert.equal(await file(entryScript),app);
   assert.ok(home.includes('action="' + base + '/wiki/search/"'));
   const item=await file("wiki/items/Shrimp/index.html");
   assert.match(item,/<h1>Креветка<\/h1>/);
   assert.match(item,/21,74%/);
   assert.ok(item.includes('rel="canonical" href="' + canonical("/wiki/items/Shrimp/") + '"'));
   assert.ok(item.includes('href="' + base + '/wiki/items/RawShrimp/"'));
+  assert.ok(item.includes('src="' + base + '/' + entryScript + '"'));
   assert.ok(item.includes('src="' + base + '/assets/1302-b41ed02d0947.webp"'));
   assert.ok((await stat(path.join(siteRoot,"assets/1302-b41ed02d0947.webp"))).size > 0);
 });

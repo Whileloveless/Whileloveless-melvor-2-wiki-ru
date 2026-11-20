@@ -1,4 +1,5 @@
 import {execFileSync} from "node:child_process";
+import {createHash} from "node:crypto";
 import {copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {dirname, join, resolve} from "node:path";
@@ -28,6 +29,8 @@ const output = resolve(options.output);
 await mkdir(output,{recursive:true});
 if ((await readdir(output)).length) throw new Error("Каталог вывода должен быть пустым: " + output);
 const scratch = await mkdtemp(join(tmpdir(),"melvor-pages-worker-"));
+const appScript = await readFile(join(inputs,"app.js"));
+const appFilename = "app." + createHash("sha256").update(appScript).digest("hex").slice(0,12) + ".js";
 const sourceArt = "https://melvor2wiki.github.io/";
 const types = {items:"Item",skills:"Skill",monsters:"Enemy",quests:"Quest",dungeons:"Dungeon"};
 const pageable = new Set(["catalog",...Object.keys(types)]);
@@ -56,6 +59,7 @@ function staticRoute(route) {
 
 function rewriteUrl(value) {
   const decoded = literal(value);
+  if (decoded === "/app.js") return base + "/" + appFilename;
   if (decoded.startsWith(sourceArt + "assets/")) return base + "/" + decoded.slice(sourceArt.length);
   if (decoded.startsWith("/") && !decoded.startsWith("//")) return staticRoute(decoded);
   if (decoded.startsWith(url.origin + "/")) return url.origin + staticRoute(decoded);
@@ -129,6 +133,7 @@ try {
   }
 
   const config = {platform:"github-pages",basePath:base,repository:options.repository};
+  await writeFile(join(output,appFilename),appScript);
   await writeFile(join(output,"site-config.js"),"globalThis.MELVOR_HOSTING = " + JSON.stringify(config) + ";\n");
   await writeFile(join(output,".nojekyll"),"");
   execFileSync("python3",["scripts/unpack-pages-art.py",join(root,"artwork/wiki-assets.zip"),output],{cwd:root,stdio:"inherit"});
