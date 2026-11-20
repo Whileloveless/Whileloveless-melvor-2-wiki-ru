@@ -226,7 +226,7 @@ function card(section, title, subtitle, id) {
 }
 function home() {
   main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
-    '<h1>Melvor <b>II</b> Вики</h1><p>Навыки, предметы, монстры и задания в мире Melvor Idle 2. Найдите нужное или начните с руководства.</p>' +
+    '<h1>Melvor Idle <b>2</b> Вики</h1><p>Навыки, предметы, монстры и задания в мире Melvor Idle 2. Найдите нужное или начните с руководства.</p>' +
     '<a class="button" href="' + path("guides","start") + '">С чего начать</a></div></section>' +
     '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="' + path("catalog") +
     '">Полный каталог</a></div><div class="grid">' +

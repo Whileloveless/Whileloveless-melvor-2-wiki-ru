@@ -30,7 +30,9 @@ test("SSR home and category pages have real Russian content and page links", asy
   const [home, html] = await fetchHtml("/");
   assert.equal(home.status,200);
   assert.match(html,/<link rel="canonical" href="https:\/\/melvor.example\/">/);
-  assert.match(mainBody(html),/<h1[^>]*>.*Melvor/);
+  const heading = mainBody(html).match(/<h1>(.*?)<\/h1>/)?.[1].replace(/<[^>]*>/g,"");
+  assert.equal(heading,"Melvor Idle 2 Вики");
+  assert.match(html,/aria-label="Melvor Idle 2 Вики, главная"/);
   assert.match(mainBody(html),/href="\/wiki\/items"/);
   const [cat, listing] = await fetchHtml("/wiki/items?page=2");
   assert.equal(cat.status,200);
