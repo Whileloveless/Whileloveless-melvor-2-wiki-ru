@@ -10,6 +10,15 @@ const suggestionStatus = document.querySelector("#suggestion-status");
 const suggestionSignin = document.querySelector("#suggestion-signin");
 const sendSuggestion = suggestionForm.querySelector('button[type="submit"]');
 const suggestionDraftKey = "melvor-suggestion-draft";
+const suggestionRepository = pagesHosting?.repository;
+
+if (suggestionRepository) {
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent = "После публикации правка будет видна всем. Проверьте текст перед отправкой на GitHub.";
+  suggestionForm.insertBefore(note,sendSuggestion);
+  sendSuggestion.textContent = "Открыть черновик на GitHub";
+}
 
 let suggestionRoute = "#/";
 let sendingSuggestion = false;
@@ -26,13 +35,13 @@ function openSuggestion() {
   const title = document.querySelector("main h1")?.textContent || "Главная";
   suggestionPage.textContent = "Страница · " + title;
   showSuggestionStatus("", "");
-  suggestionSignin.hidden = true;
+  if (suggestionSignin) suggestionSignin.hidden = true;
   suggestionForm.hidden = false;
   suggestionDialog.showModal();
 }
 
 suggestButton.addEventListener("click",openSuggestion);
-suggestionSignin.addEventListener("click", () => {
+suggestionSignin?.addEventListener("click", () => {
   try {
     sessionStorage.setItem(suggestionDraftKey,JSON.stringify({page:suggestionRoute,message:suggestionMessage.value}));
   } catch {
@@ -53,6 +62,16 @@ suggestionForm.addEventListener("submit", async event => {
   if (!message) {
     showSuggestionStatus("Напишите, что нужно исправить.", "error");
     suggestionMessage.focus();
+    return;
+  }
+  if (suggestionRepository) {
+    const title = document.querySelector("main h1")?.textContent || "Главная";
+    const draft = new URL("https://github.com/" + suggestionRepository + "/issues/new");
+    draft.search = new URLSearchParams({
+      title:"Правка в вики · " + title,
+      body:message + "\n\nСтраница вики\n" + location.href
+    });
+    window.open(draft.href,"_blank","noopener,noreferrer");
     return;
   }
 
@@ -93,13 +112,15 @@ suggestionForm.addEventListener("submit", async event => {
   }
 });
 
-try {
-  const draft = JSON.parse(sessionStorage.getItem(suggestionDraftKey));
-  if (draft?.page === wikiRoute() && typeof draft.message === "string") {
-    sessionStorage.removeItem(suggestionDraftKey);
-    suggestionMessage.value = draft.message;
-    openSuggestion();
+if (!suggestionRepository) {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(suggestionDraftKey));
+    if (draft?.page === wikiRoute() && typeof draft.message === "string") {
+      sessionStorage.removeItem(suggestionDraftKey);
+      suggestionMessage.value = draft.message;
+      openSuggestion();
+    }
+  } catch {
+    // The form works without local browser storage.
   }
-} catch {
-  // The form works without local browser storage.
 }

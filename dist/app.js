@@ -13,12 +13,49 @@ const formatChance = value => (value > 0 && value < 0.0001 ? smallPercent : perc
 const collator = new Intl.Collator("ru", { numeric: true });
 const number = value => value == null ? "—" : fmt.format(value);
 const esc = input => String(input ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[char]);
-const path = (section, id) => section ? "/wiki/" + section + (id ? "/" + encodeURIComponent(id) : "") : "/";
+const hosting = globalThis.MELVOR_HOSTING;
+const pagesHosting = hosting?.platform === "github-pages" ? hosting : null;
+const wikiBasePath = pagesHosting?.basePath || "";
+const wikiAssetPath = name => wikiBasePath + "/" + name;
+function path(section, id) {
+  if (!section) return wikiAssetPath("");
+  let segment = id ? encodeURIComponent(id) : "";
+  if (pagesHosting && section === "article") segment = segment.replaceAll("~","%7E").replaceAll("%","~");
+  return wikiAssetPath("wiki/" + section + (segment ? "/" + segment : "") + (pagesHosting ? "/" : ""));
+}
+function wikiHasStaticPagination(section) {
+  return section === "catalog" || (section !== "guides" && Object.hasOwn(groups,section));
+}
+function legacyWikiPath(route) {
+  if (!pagesHosting) return route ? "/wiki/" + route : "/";
+  const [,pathname,query = "",fragment = ""] = /^([^?#]*)(\?[^#]*)?(#.*)?$/.exec(route);
+  const [section,id] = pathname.split("/");
+  const params = new URLSearchParams(query);
+  const page = Number(params.get("page"));
+  if (!id && page > 1 && Number.isSafeInteger(page) && wikiHasStaticPagination(section)) {
+    params.delete("page");
+    return path(section) + "page/" + page + "/" + (params.size ? "?" + params : "") + fragment;
+  }
+  return path(section,id ? decodeURIComponent(id) : undefined) + query + fragment;
+}
 function wikiRoute() {
   if (location.hash.startsWith("#/")) return location.hash;
+  const wikiPrefix = wikiAssetPath("wiki/");
   const pathname = (location.pathname || "/").replace(/\/$/,"");
-  const route = pathname.startsWith("/wiki/") ? pathname.slice(6) : "";
-  return "#/" + route + (location.search || "");
+  let route = pathname.startsWith(wikiPrefix) ? pathname.slice(wikiPrefix.length) : "";
+  let query = location.search || "";
+  if (pagesHosting) {
+    const paginated = /^([^/]+)\/page\/(\d+)$/.exec(route);
+    if (paginated && wikiHasStaticPagination(paginated[1])) {
+      const params = new URLSearchParams(query);
+      params.set("page",paginated[2]);
+      route = paginated[1];
+      query = "?" + params;
+    } else if (route.startsWith("article/")) {
+      route = route.replaceAll("~","%");
+    }
+  }
+  return "#/" + route + query;
 }
 function routeParams() {
   return new URLSearchParams(wikiRoute().split("?")[1]);
@@ -29,6 +66,13 @@ function currentWikiPage() {
 }
 function setWikiPage(page) {
   const params = routeParams();
+  const [section,id] = wikiRoute().slice(2).split("?")[0].split("/");
+  if (pagesHosting && !id && wikiHasStaticPagination(section)) {
+    params.delete("page");
+    const pathname = path(section) + (page > 1 ? "page/" + page + "/" : "");
+    history.replaceState(null,"",pathname + (params.size ? "?" + params : ""));
+    return;
+  }
   if (page > 1) params.set("page",String(page));
   else params.delete("page");
   history.replaceState(null,"",location.pathname + (params.size ? "?" + params : ""));
@@ -183,14 +227,15 @@ function card(section, title, subtitle, id) {
 function home() {
   main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
     '<h1>Melvor <b>II</b> Вики</h1><p>Навыки, предметы, монстры и задания в мире Melvor Idle 2. Найдите нужное или начните с руководства.</p>' +
-    '<a class="button" href="/wiki/guides/start">С чего начать</a></div></section>' +
-    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="/wiki/catalog">Полный каталог</a></div><div class="grid">' +
+    '<a class="button" href="' + path("guides","start") + '">С чего начать</a></div></section>' +
+    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="' + path("catalog") +
+    '">Полный каталог</a></div><div class="grid">' +
     Object.entries(groups).map(([key,[title,,desc]]) => card(key,title,desc)).join("") +
     '</div></section><section class="section"><h2>Руководства</h2><div class="reading">' +
     Object.entries(guides).map(([id,g]) => card("guides",g.name,g.subtitle,id)).join("") + '</div></section>';
 }
 function heading(section, title, subtitle, detailId) {
-  return '<div class="crumb"><a href="/">Главная</a>' + (section ? ' / ' +
+  return '<div class="crumb"><a href="' + path() + '">Главная</a>' + (section ? ' / ' +
     (detailId ? '<a href="' + path(section) + '">' + groups[section][0] + '</a>' : groups[section][0]) : '') +
     '</div><header class="page-head"><h1>' + (detailId ? iconMarkup(section,detailId) : "") + esc(title) + '</h1>' +
     (subtitle ? '<p class="muted">' + esc(subtitle) + '</p>' : '') + '</header>';
@@ -333,7 +378,9 @@ function list(section, articleIndex) {
       const name = articleIndex?.[fullKey]?.[0] || localName(id,row.name);
       return {id,kind,row,name};
     }));
-  const order = (a,b) => collator.compare(a.name,b.name);
+  const order = pagesHosting && articleIndex
+    ? (a,b) => compareWiki.compare(a.name,b.name) || compareWiki.compare(a.row.name,b.row.name)
+    : (a,b) => collator.compare(a.name,b.name);
   rows.sort(order);
   if (section === "guides") {
     main.innerHTML = heading(section,groups[section][0],groups[section][2]) +
@@ -399,12 +446,23 @@ function list(section, articleIndex) {
   resultsView();
 }
 function missing() {
-  main.innerHTML = heading(null,"Страница не найдена","") + '<p><a href="/">Вернуться на главную</a></p>';
+  main.innerHTML = heading(null,"Страница не найдена","") + '<p><a href="' + path() + '">Вернуться на главную</a></p>';
 }
 function render() {
-  if (location.hash.startsWith("#/") && typeof history !== "undefined") {
-    const route = location.hash.slice(2);
-    history.replaceState(null,"",route ? "/wiki/" + route : "/");
+  const legacy = location.hash.startsWith("#/");
+  if (pagesHosting && !legacy && main.dataset?.staticNotFound !== undefined) return;
+  if (legacy && typeof history !== "undefined") {
+    try {
+      history.replaceState(null,"",legacyWikiPath(location.hash.slice(2)));
+    } catch (error) {
+      if (!(error instanceof URIError)) throw error;
+      missing();
+      return;
+    }
+    if (pagesHosting) {
+      delete main.dataset.ssrArticle;
+      delete main.dataset.staticNotFound;
+    }
   }
   const [section,id] = wikiRoute().slice(2).split("?")[0].split("/");
   document.querySelectorAll("[data-nav]").forEach(a => {

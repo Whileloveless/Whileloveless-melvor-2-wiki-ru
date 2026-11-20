@@ -17,7 +17,7 @@ h1,h2,h3{font-family:var(--serif);line-height:1.23}h1{font-size:clamp(2rem,4vw,3
 .entity-icon{
   --icon-size:1.35rem;
   display:inline-block;width:var(--icon-size);height:var(--icon-size);
-  margin-inline-end:.36em;vertical-align:-.26em;background-image:url(/icons.webp);
+  margin-inline-end:.36em;vertical-align:-.26em;background-image:url(icons.webp);
   background-size:calc(var(--icon-cols) * var(--icon-size)) calc(var(--icon-rows) * var(--icon-size));
   background-position:calc(-1 * var(--icon-x) * var(--icon-size)) calc(-1 * var(--icon-y) * var(--icon-size));
   background-repeat:no-repeat

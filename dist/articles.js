@@ -31,7 +31,7 @@ const compareWiki = new Intl.Collator("ru",{numeric:true,sensitivity:"base"});
 const wikiPacks = new Map();
 
 async function loadWikiPack(name) {
-  const response = await fetch("/" + name + ".json.gz");
+  const response = await fetch(wikiAssetPath(name + ".json.gz"));
   if (!response.ok || !response.body) throw new Error("Wiki archive unavailable");
   return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).json();
 }
@@ -64,7 +64,12 @@ function setWikiTitle(title) {
 }
 
 function linkArticlePaths(content) {
-  return content.replaceAll('href="#/"','href="/"').replaceAll('href="#/','href="/wiki/');
+  if (!pagesHosting) return content.replaceAll('href="#/"','href="/"').replaceAll('href="#/','href="/wiki/');
+  return content.replace(/\bhref=(["'])#\/(.*?)\1/g, (_, quote, route) =>
+    "href=" + quote + esc(legacyWikiPath(route.replaceAll("&amp;","&"))) + quote
+  ).replace(/\bsrc=(["'])https:\/\/melvor2wiki\.github\.io\/(assets\/[^"'\s]+)\1/g, (_, quote, image) =>
+    "src=" + quote + wikiAssetPath(image) + quote
+  );
 }
 
 function bindWikiArticleControls(root, key) {
@@ -107,7 +112,7 @@ function bindWikiArticleControls(root, key) {
       target.scrollIntoView({block:"start"});
     }
   });
-  const anchor = routeParams().get("section");
+  const anchor = routeParams().get("section") || (pagesHosting ? location.hash.slice(1) : "");
   if (anchor) root.querySelector("#" + CSS.escape(anchor))?.scrollIntoView({block:"start"});
 }
 
@@ -155,7 +160,8 @@ async function renderWikiArticle(key, section, id, fallback) {
       const skill = new URLSearchParams(key.split("?")[1]).get("id");
       bindWikiTraining(root,skill,{
         titleFor: target => index[target]?.[0],
-        hrefFor: target => Object.hasOwn(index,target) ? wikiArticlePath(target) : wikiSourcePage(target)
+        hrefFor: target => Object.hasOwn(index,target) ? wikiArticlePath(target) : wikiSourcePage(target),
+        engineUrl: wikiAssetPath("wiki-training-engine.js")
       });
     }
     bindWikiArticleControls(root,key);
@@ -214,7 +220,7 @@ async function renderWikiCatalog(isSearch) {
     results.innerHTML = table(["Статья","Раздел"],filtered.slice((page - 1) * limit,page * limit)
       .map(([key,[translated,original,kind,,image]]) => [
         '<a href="' + wikiArticlePath(key) + '">' + (image ? '<img class="wiki-small-art" alt="" loading="lazy" src="' +
-          esc(wikiSource + image) + '">' : "") + esc(translated) + '</a>' +
+          esc(pagesHosting ? wikiAssetPath(image) : wikiSource + image) + '">' : "") + esc(translated) + '</a>' +
           (translated !== original ? '<small lang="en">' + esc(original) + '</small>' : ""),
         esc(wikiTypes[kind] || kind)
       ])) +
