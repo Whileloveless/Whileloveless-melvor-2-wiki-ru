@@ -142,12 +142,12 @@ function seoGuideCards() {
 }
 
 function seoHome(request,url) {
-  const title = "Melvor Idle 2 — русскоязычная вики";
-  const description = "Русскоязычная база знаний по Melvor Idle 2. Предметы, навыки, монстры, задания, подземелья и руководства по прокачке.";
+  const title = "Melvor Idle 2 — вики на русском";
+  const description = "Предметы, навыки, монстры, задания и подземелья. Гайды для новичков, калькуляторы прокачки и шансов выпадения предметов.";
   const cards = Object.entries(seoGroups).map(([id,[,name,copy]]) => ["/wiki/" + id,name,copy]);
   cards.push(["/wiki/catalog","Полный каталог","Все категории и статьи русскоязычной вики."]);
   const body = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
-    '<h1>Melvor Idle <b>2</b> Вики</h1><p>' + seoEscape(description) +
+    '<h1>Melvor Idle <b>2</b> — вики на русском</h1><p>' + seoEscape(description) +
     '</p><a class="button" href="/wiki/guides/start">С чего начать</a></div></section>' +
     '<section class="section"><h2>Разделы вики</h2>' + seoCards(cards) + '</section>' +
     '<section class="section"><h2>Руководства</h2>' + seoGuideCards() + '</section>';
