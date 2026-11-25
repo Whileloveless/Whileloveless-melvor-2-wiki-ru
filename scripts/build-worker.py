@@ -30,8 +30,10 @@ server.mkdir(parents=True, exist_ok=True)
 (server / "index.js").write_text(
     "const assets = " + json.dumps(assets, ensure_ascii=False, separators=(",", ":")) + ";\n"
     + assets["/editorial.js"][1] + "\n"
-    + (root / "worker/seo.js").read_text() + "\n"
-    + (root / "worker/index.js").read_text()
+    + assets["/wiki-tools.js"][1] + "\n"
+    + (root / "worker/seo.js").read_text(encoding="utf-8") + "\n"
+    + (root / "worker/index.js").read_text(encoding="utf-8"),
+    encoding="utf-8"
 )
 for path in (".openai/hosting.json", "drizzle/0000_wiki_suggestions.sql"):
     (output / path).parent.mkdir(parents=True, exist_ok=True)

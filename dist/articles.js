@@ -150,12 +150,22 @@ async function renderWikiArticle(key, section, id, fallback) {
     if (!serverArticle) {
       main.innerHTML = '<article class="article wiki-page">' + heading(section,title,original === title ? "" : original,id) +
         wikiEditorial.articleNote(path,key) +
-        '<div class="wiki-article-content">' + linkArticlePaths(content) + '</div>' +
+        '<div class="wiki-article-content">' + (wikiTools.page(key) || linkArticlePaths(content)) + '</div>' +
         sectionBlock("Источник",'<p>' + sourceLink(wikiSourcePage(key)) + '</p>') + '</article>';
     }
     const root = main.querySelector(".wiki-article-content");
     if (!root) return;
     if (!serverArticle) setWikiTitle(title);
+    if (root.querySelector(".wiki-tool")) {
+      try {
+        const snapshot = await wikiPack("wiki-tools-data");
+        if (wikiRoute() !== requested || !root.isConnected) return;
+        wikiTools.bind(root,key,snapshot,index,wikiArticlePath);
+      } catch (error) {
+        root.querySelector(".wiki-tool-status").textContent = "Не удалось загрузить калькулятор. Обновите страницу.";
+        console.error(error);
+      }
+    }
     if (typeof bindWikiDropCalculator === "function") bindWikiDropCalculator(root,calculator);
     if (key.startsWith("#/guide?") && typeof bindWikiTraining === "function") {
       const skill = new URLSearchParams(key.split("?")[1]).get("id");
@@ -193,16 +203,23 @@ async function renderWikiCatalog(isSearch) {
   const rows = Object.entries(index).sort(([,a],[,b]) =>
     compareWiki.compare(a[0],b[0]) || compareWiki.compare(a[1],b[1]));
   const typeCounts = new Map();
-  for (const [,row] of rows) typeCounts.set(row[2],(typeCounts.get(row[2]) || 0) + 1);
-  const categories = [...typeCounts].sort(([a],[b]) => compareWiki.compare(wikiTypes[a] || a,wikiTypes[b] || b));
+  const typeNames = new Map(Object.entries(wikiTypes));
+  for (const [,[,,kind,,,label]] of rows) {
+    typeCounts.set(kind,(typeCounts.get(kind) || 0) + 1);
+    if (label && !typeNames.has(kind)) typeNames.set(kind,label);
+  }
+  const typeName = kind => typeNames.get(kind) || kind;
+  const categories = [...typeCounts].sort(([a],[b]) => compareWiki.compare(typeName(a),typeName(b)));
   main.innerHTML = heading(null,title,"Поиск по русским и английским названиям") +
     '<div class="filters"><input id="wiki-query" type="search" aria-label="Название статьи" placeholder="Название или ID…" value="' +
     esc(term) + '"><select id="wiki-kind" aria-label="Тип статьи"><option value="">Все разделы</option>' +
-    categories.map(([kind,total]) => '<option value="' + esc(kind) + '">' + esc(wikiTypes[kind] || kind) +
+    categories.map(([kind,total]) => '<option value="' + esc(kind) + '">' + esc(typeName(kind)) +
       " (" + number(total) + ")</option>").join("") +
     '</select><span id="wiki-count" class="meta" role="status"></span></div><div id="wiki-list"></div>';
   const filter = main.querySelector("#wiki-query");
   const kindFilter = main.querySelector("#wiki-kind");
+  const initialType = routeParams().get("type");
+  if (typeCounts.has(initialType)) kindFilter.value = initialType;
   const results = main.querySelector("#wiki-list");
   const count = main.querySelector("#wiki-count");
   let page = currentWikiPage();
@@ -224,7 +241,7 @@ async function renderWikiCatalog(isSearch) {
         '<a href="' + wikiArticlePath(key) + '">' + (image ? '<img class="wiki-small-art" alt="" loading="lazy" src="' +
           esc(pagesHosting ? wikiAssetPath(image) : wikiSource + image) + '">' : "") + esc(translated) + '</a>' +
           (translated !== original ? '<small lang="en">' + esc(original) + '</small>' : ""),
-        esc(wikiTypes[kind] || kind)
+        esc(typeName(kind))
       ])) +
       (total === 1 ? "" : '<div class="pager"><button type="button" class="button secondary" data-wiki-page="-1"' +
         (page === 1 ? " disabled" : "") + '>Назад</button><span class="meta">Страница ' + number(page) + " из " +
@@ -233,7 +250,14 @@ async function renderWikiCatalog(isSearch) {
   }
   function refilter() { page = 1; setWikiPage(page); draw(); }
   filter.addEventListener("input",refilter);
-  kindFilter.addEventListener("change",refilter);
+  kindFilter.addEventListener("change",() => {
+    const params = routeParams();
+    if (kindFilter.value) params.set("type",kindFilter.value);
+    else params.delete("type");
+    params.delete("page");
+    history.replaceState(null,"",path(isSearch ? "search" : "catalog") + (params.size ? "?" + params : ""));
+    refilter();
+  });
   results.addEventListener("click",event => {
     const move = event.target.closest("[data-wiki-page]:enabled");
     if (!move) return;

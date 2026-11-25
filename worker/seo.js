@@ -170,7 +170,7 @@ function seoDescription(title,body) {
 async function seoArticle(request,url,key,[title,original,type,packId]) {
   const pack = await seoPack(packId);
   if (!Object.hasOwn(pack,key)) throw new Error("Archived wiki article missing " + key);
-  const content = seoRewriteLinks(pack[key][0]);
+  const content = wikiTools.page(key) || seoRewriteLinks(pack[key][0]);
   const group = seoGroupByType[type];
   const body = '<article class="article wiki-page">' + seoCrumbs(group,seoPageName(group)) +
     seoHeading(title,original === title ? "" : original) +

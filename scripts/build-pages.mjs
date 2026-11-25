@@ -8,6 +8,7 @@ import {parseArgs} from "node:util";
 import {gunzipSync} from "node:zlib";
 
 const root = fileURLToPath(new URL("..",import.meta.url));
+const python = process.platform === "win32" ? "python" : "python3";
 const inputs = resolve(root,"dist");
 const {values: options} = parseArgs({options:{
   url:{type:"string"},
@@ -103,7 +104,7 @@ async function writePage(worker,route) {
 }
 
 try {
-  execFileSync("python3",["scripts/build-worker.py",scratch],{cwd:root,stdio:"inherit"});
+  execFileSync(python,["scripts/build-worker.py",scratch],{cwd:root,stdio:"inherit"});
   const {default:worker} = await import(pathToFileURL(join(scratch,"dist/server/index.js")));
   const originalSitemap = await worker.fetch(new Request(url.origin + "/sitemap.xml"),{});
   if (!originalSitemap.ok) throw new Error("Не удалось прочитать карту статей");
@@ -136,7 +137,7 @@ try {
   await writeFile(join(output,appFilename),appScript);
   await writeFile(join(output,"site-config.js"),"globalThis.MELVOR_HOSTING = " + JSON.stringify(config) + ";\n");
   await writeFile(join(output,".nojekyll"),"");
-  execFileSync("python3",["scripts/unpack-pages-art.py",join(root,"artwork/wiki-assets.zip"),output],{cwd:root,stdio:"inherit"});
+  execFileSync(python,["scripts/unpack-pages-art.py",join(root,"artwork/wiki-assets.zip"),output],{cwd:root,stdio:"inherit"});
 
   for (let index = 0; index < routes.length; index += 24) {
     await Promise.all(routes.slice(index,index + 24).map(route=>writePage(worker,route)));

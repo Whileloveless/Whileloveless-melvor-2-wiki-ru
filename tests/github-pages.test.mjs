@@ -82,3 +82,22 @@ test("editorial guides, patch notes and item tips are accessible without JavaScr
   assert.match(sword, /Как сделать каменный меч/);
   assert.ok(sword.includes('href="' + base + '/wiki/guides/start/"'));
 });
+
+test("the expanded catalog and calculators are linked and included in the sitemap", async () => {
+  const home = await file("index.html");
+  const sitemap = await file("sitemap.xml");
+  const directory = "/wiki/article/~23~2Ffamiglie/";
+  const tools = ["/wiki/article/~23~2Fidle/","/wiki/article/~23~2Fmoney/"];
+  for (const route of [directory,...tools]) {
+    const html = await file(route.slice(1) + "index.html");
+    assert.ok(home.includes('href="' + base + route + '"'),route);
+    assert.ok(sitemap.includes("<loc>" + canonical(route) + "</loc>"),route);
+    assert.ok(html.includes('rel="canonical" href="' + canonical(route) + '"'),route);
+  }
+  const categories = await file(directory.slice(1) + "index.html");
+  assert.ok(categories.includes('href="' + base + '/wiki/catalog/?type=FarmingPlot"'));
+  const plot = "/wiki/article/FarmingPlot~2FMelvorBase~3AAllotment1/";
+  assert.ok(sitemap.includes("<loc>" + canonical(plot) + "</loc>"));
+  assert.match(await file(plot.slice(1) + "index.html"),/<h1>Грядка 1<\/h1>/);
+  assert.ok((await stat(path.join(siteRoot,"wiki-tools-data.json.gz"))).size > 0);
+});

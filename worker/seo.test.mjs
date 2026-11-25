@@ -49,6 +49,27 @@ test("beginner guide answers how to unlock combat in the static HTML", async () 
   assert.match(mainBody(html),/<h2 id="part-1">Как открыть бой в Melvor Idle 2<\/h2><p>[^<]*каменный меч[^<]*десять креветок/);
 });
 
+test("expanded catalog and calculators have permanent Russian pages", async () => {
+  const [plot, plotHtml] = await fetchHtml("/wiki/article/FarmingPlot%2FMelvorBase%3AAllotment1");
+  assert.equal(plot.status,200);
+  assert.match(mainBody(plotHtml), /<h1>Грядка 1<\/h1>/);
+  const [directory, directoryHtml] = await fetchHtml("/wiki/article/%23%2Ffamiglie");
+  assert.equal(directory.status,200);
+  assert.match(mainBody(directoryHtml), /Грядки и участки/);
+  const [arya, petHtml] = await fetchHtml("/wiki/article/Pet%2FMelvorBase%3AArya");
+  assert.equal(arya.status,200);
+  assert.match(mainBody(petHtml), /к валюте за задания Истребления/);
+  for (const [key, heading, form] of [
+    ["idle", "Калькулятор AFK-боя", "wiki-idle"],
+    ["money", "Калькулятор золота в час", "wiki-money"],
+  ]) {
+    const [page, html] = await fetchHtml("/wiki/article/%23%2F" + key);
+    assert.equal(page.status,200);
+    assert.ok(mainBody(html).includes("<h1>" + heading + "</h1>"));
+    assert.ok(mainBody(html).includes('id="' + form + '"'));
+  }
+});
+
 test("SSR articles use a single heading and resolve real packed data and links", async () => {
   const [page, article] = await fetchHtml("/wiki/items/Shrimp?section=effects");
   assert.equal(page.status,200);

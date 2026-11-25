@@ -37,6 +37,7 @@ jobs:
           GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
           YANDEX_VERIFICATION: ${{ vars.YANDEX_VERIFICATION }}
         run: |
+          node --test tests/wiki-tools.test.mjs
           node scripts/build-pages.mjs --url "$PAGES_URL" --repository "$SITE_REPOSITORY" --output _site
           node tests/github-pages.test.mjs _site "$PAGES_URL"
       - uses: actions/upload-pages-artifact@v3

@@ -148,6 +148,12 @@ h1,h2,h3{font-family:var(--serif);line-height:1.23}h1{font-size:clamp(2rem,4vw,3
 .wiki-article-content .drop-estimate-result{margin-top:10px}
 .wiki-article-content .drop-estimate-results{display:flex;gap:10px;flex-wrap:wrap}
 .wiki-article-content .drop-estimate-results > *{border:1px solid var(--edge);border-radius:8px;padding:8px 12px;background:var(--panel)}
+.wiki-article-content .wiki-tool{display:grid;gap:14px}
+.wiki-tool fieldset{min-width:0;padding:12px 15px;border:1px solid var(--edge);border-radius:8px;background:var(--panel)}
+.wiki-tool label{display:grid;align-content:end;gap:5px;color:var(--muted);font-size:.88rem}
+.wiki-tool-fits{color:#a9d3a2}
+.wiki-tool-exceeds,.wiki-tool-blocked{color:#f3aaa3}
+.wiki-tool-review,.wiki-tool-maxHit{color:var(--gold)}
 @media(max-width:930px){
   .wiki-article-content .entity-layout{grid-template-columns:minmax(0,1fr)}
   .wiki-article-content .entity-layout .wiki-infobox{grid-column:1;grid-row:1;max-width:360px}

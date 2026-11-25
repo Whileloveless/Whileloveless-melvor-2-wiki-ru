@@ -66,7 +66,7 @@ const wikiEditorial = (() => {
         ["Подземелья и награды",
           "Сверьте условия входа и порядок волн. Посмотрите карточку босса отдельно. С 0.11.7-alpha в таблицах наград подземелий можно увидеть, какие предметы уже найдены."]
       ],
-      links: [["Голбин", "monsters", "Golbin"], ["Лагерь хобголбинов", "dungeons", "HobgolbinCamp"],
+      links: [["Калькулятор AFK-боя", "article", "#/idle"], ["Голбин", "monsters", "Golbin"], ["Лагерь хобголбинов", "dungeons", "HobgolbinCamp"],
         ["Здоровье", "skills", "Hitpoints"], ["Изменения управления в 0.11.7-alpha", "guides", "updates"]],
       sources: [game, launchPatch, currentPatch, dataSource]
     },
@@ -118,7 +118,7 @@ const wikiEditorial = (() => {
         ["Проверьте, что оставить в банке",
           "Перья в раннем доступе продаются по 1 GP за штуку. Прежде чем продавать всю партию ресурсов, посмотрите в Кодексе, какие рецепты и задания их используют."]
       ],
-      links: [["Ремесло", "skills", "Crafting"], ["Изготовление рун", "skills", "Runecrafting"],
+      links: [["Калькулятор золота в час", "article", "#/money"], ["Ремесло", "skills", "Crafting"], ["Изготовление рун", "skills", "Runecrafting"],
         ["Истребление", "skills", "Slayer"], ["Сюжетные задания", "guides", "quests"]],
       sources: [launchPatch, game]
     },
@@ -256,7 +256,10 @@ const wikiEditorial = (() => {
       '<p class="wiki-home-more">' + link(path("guides", "updates"), "Что изменилось") + '</p></section></div>' +
       '<section class="wiki-home-section"><h2>Справочник</h2><ul class="wiki-reference">' +
       references.map(([group, label, copy]) => '<li>' + link(path(group), label) + '<p>' + copy + '</p></li>').join("") +
-      '</ul></section>';
+      '</ul><p class="wiki-home-more">' + link(path("article", "#/famiglie"), "Справочник игровых данных") + '</p></section>' +
+      '<section class="wiki-home-section"><h2>Калькуляторы</h2><ul class="wiki-reference"><li>' +
+      link(path("article", "#/idle"), "AFK-бой") + '<p>Урон противников и порог автоеды</p></li><li>' +
+      link(path("article", "#/money"), "Золото в час") + '<p>Доход по навыкам и уровню</p></li></ul></section>';
   }
 
   function guideIndex(path) {
