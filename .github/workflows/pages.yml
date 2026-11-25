@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -17,6 +18,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -37,7 +40,26 @@ jobs:
           node scripts/build-pages.mjs --url "$PAGES_URL" --repository "$SITE_REPOSITORY" --output _site
           node tests/github-pages.test.mjs _site "$PAGES_URL"
       - uses: actions/upload-pages-artifact@v3
+        id: upload
         with:
+          name: ${{ env.PAGES_ARTIFACT }}
           path: _site
+      - name: Дождаться регистрации артефакта
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
+        run: |
+          : "${PAGES_ARTIFACT_ID:?Missing Pages artifact ID}"
+          for attempt in {1..10}; do
+            if visible=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$PAGES_ARTIFACT" --jq '.artifacts[] | select(.expired == false) | .id') && [[ "$visible" == "$PAGES_ARTIFACT_ID" ]]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo '::error::GitHub Actions did not register the Pages artifact in time'
+          exit 1
       - uses: actions/deploy-pages@v4
         id: deployment
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
