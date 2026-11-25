@@ -5,7 +5,6 @@ const main = document.querySelector("main");
 const search = document.querySelector(".search");
 const searchInput = search.elements.q;
 const upstream = "https://melvor2wiki.github.io/#/";
-const steam = "https://steamcommunity.com/app/3218350/allnews/?l=english";
 const fmt = new Intl.NumberFormat("ru", { maximumFractionDigits: 2 });
 const percent = new Intl.NumberFormat("ru", { style:"percent", maximumFractionDigits: 2 });
 const smallPercent = new Intl.NumberFormat("ru", { style:"percent", maximumFractionDigits: 5 });
@@ -168,23 +167,6 @@ const skillNotes = {
  Cooking:"Приготовленная еда пополняет здоровье в бою. Для открытия боевого раздела в обучении нужно приготовить десять креветок.",
  Runecrafting:"Изготавливайте руны для заклинаний. Перед тренировкой магии проверьте расход рун выбранного заклинания."
 };
-const guides = {
- start:{name:"С чего начать", subtitle:"Первые шаги в Melvor Idle 2. Как пройти обучение, собрать припасы и открыть бой.", sections:[
-  ["Как открыть бой в Melvor Idle 2","Чтобы открыть бой при прохождении обучения, добудьте камень, выкуйте каменный меч, затем поймайте и приготовьте десять креветок."],
-  ["Пройдите обучение","Подсказки обучения постепенно открывают страницы игры и знакомят с производственными цепочками. Пропуск доступен при создании персонажа и в меню паузы."],
-  ["Проверяйте требования","Во внутриигровом Кодексе можно посмотреть, где взять нужный предмет и для чего он пригодится. Перед запуском длительного действия проверьте запасы материалов, еды и боеприпасов."]],
-  links:[["skills","Mining"],["items","StoneSword"],["items","Shrimp"]]},
- progress:{name:"Прокачка навыков",subtitle:"Опыт, уровни и гильдии мастерства",sections:[
-  ["Выберите следующее действие","В статьях о навыках есть таблицы доступных действий и, где это рассчитано источником, базовая скорость получения опыта. Учитывайте дополнительные условия открытия и время на добычу ингредиентов."],
-  ["Сравнивайте полные циклы","Смотрите на опыт за час с учётом расхода материалов и простоев. Сравнивайте результаты через статистику текущего действия в игре."],
-  ["Открывайте бонусы","У гильдий мастерства есть ранги и задания. Сверяйте их условия и награды в игре. Астрология, ловкость и зельеварение дают дополнительные возможности для развития."]],
-  links:[["skills","Mining"],["skills","Astrology"],["skills","Herblore"]]},
- combat:{name:"Подготовка к бою",subtitle:"Снаряжение, еда и выбор противника",sections:[
-  ["Соберите комплект","Подберите оружие под выбранный стиль. Проверьте запас еды, боеприпасов или рун и требования к снаряжению."],
-  ["Оцените противника","В карточке монстра есть здоровье, интервал атаки и базовый максимальный удар по стилю. Особые атаки, эффекты зоны и взаимодействия стилей меняют итоговый урон."],
-  ["Проверьте условия подземелья","Сверьте условия открытия и порядок волн. Перед боем без присмотра понаблюдайте за несколькими победами и проверьте расход еды."]],
-  links:[["monsters","Golbin"],["dungeons","HobgolbinCamp"],["skills","Hitpoints"]]}
-};
 function localName(id, original) {
   if (Object.hasOwn(ru,id)) return ru[id];
   const space = (original || "").indexOf(" ");
@@ -196,7 +178,7 @@ function localName(id, original) {
   return original || id;
 }
 function entry(section, id) {
-  const dictionary = section === "guides" ? guides : data[section];
+  const dictionary = section === "guides" ? wikiEditorial.guides : data[section];
   return Object.hasOwn(dictionary,id) ? dictionary[id] : undefined;
 }
 function titleFor(section, id) {
@@ -217,22 +199,6 @@ function entity(section, id, fallback, label) {
 }
 function sourceLink(url, caption = "Статья на английском") {
   return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(caption) + '</a>';
-}
-function card(section, title, subtitle, id) {
-  const icon = section === "skills" ? iconMarkup("skills","Mining") :
-    section === "items" ? iconMarkup("items","StoneSword") : "";
-  return '<a class="card" href="' + path(section,id) + '"><span class="glyph ' + section + '" aria-hidden="true">' +
-    (icon || groups[section][1]) + '</span><div><h3>' + esc(title) + '</h3><p>' + esc(subtitle) + '</p></div></a>';
-}
-function home() {
-  main.innerHTML = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
-    '<h1>Melvor Idle <b>2</b> — вики на русском</h1><p>Предметы, навыки, монстры, задания и подземелья. Гайды для новичков, калькуляторы прокачки и шансов выпадения предметов.</p>' +
-    '<a class="button" href="' + path("guides","start") + '">С чего начать</a></div></section>' +
-    '<section class="section"><div class="section-head"><h2>Разделы вики</h2><a href="' + path("catalog") +
-    '">Полный каталог</a></div><div class="grid">' +
-    Object.entries(groups).map(([key,[title,,desc]]) => card(key,title,desc)).join("") +
-    '</div></section><section class="section"><h2>Руководства</h2><div class="reading">' +
-    Object.entries(guides).map(([id,g]) => card("guides",g.name,g.subtitle,id)).join("") + '</div></section>';
 }
 function heading(section, title, subtitle, detailId) {
   return '<div class="crumb"><a href="' + path() + '">Главная</a>' + (section ? ' / ' +
@@ -327,11 +293,13 @@ function renderDetail(section, id) {
   const row = entry(section,id);
   if (!row) return missing();
   const name = titleFor(section,id);
-  let body = "";
   if (section === "guides") {
-    body = row.sections.map(([label,copy]) => sectionBlock(label,"<p>" + esc(copy) + "</p>")).join("") +
-      sectionBlock("Справочные статьи","<ul>" + row.links.map(([kind,key]) => "<li>" + entity(kind,key) + "</li>").join("") + "</ul>");
-  } else if (section === "skills") {
+    main.innerHTML = '<article class="article wiki-guide">' + heading(section,name,row.subtitle,id) +
+      wikiEditorial.guideBody(path,id) + '</article>';
+    return;
+  }
+  let body = "";
+  if (section === "skills") {
     const available = data.recipes.filter(r => r.requirements.some(([key]) => key === id));
     const rates = (row.progress || []).filter(r => r[3] != null);
     body = (skillNotes[id] ? "<p>" + esc(skillNotes[id]) + "</p>" : "") +
@@ -363,16 +331,19 @@ function renderDetail(section, id) {
       sectionBlock("Волны противников",row.waves.length ? table(["Волна","Возможные противники","Количество"],
         row.waves.map(([count,keys],i) => [number(i + 1),keys.map(key => entity("monsters",key)).join(", "),number(count)])) : "");
   }
-  const reference = section === "guides" ? sourceLink(steam,"Официальные новости игры") :
-    sourceLink(upstream + "scheda?" + new URLSearchParams({id:groups[section][3] + "/MelvorBase:" + id}));
+  const reference = sourceLink(upstream + "scheda?" + new URLSearchParams({id:groups[section][3] + "/MelvorBase:" + id}));
   main.innerHTML = '<article class="article">' + heading(section,name, row.name !== name ? row.name : "",id) +
     body + sectionBlock("Источник","<p>" + reference + "</p>") + "</article>";
 }
 function list(section, articleIndex) {
+  if (section === "guides") {
+    main.innerHTML = heading(section,groups[section][0],groups[section][2]) + wikiEditorial.guideIndex(path);
+    return;
+  }
   const query = routeParams().get("q") || "";
   const searching = section === "search";
   const source = searching ? Object.keys(groups) : [section];
-  const rows = source.flatMap(kind => Object.entries(kind === "guides" ? guides : data[kind])
+  const rows = source.flatMap(kind => Object.entries(kind === "guides" ? wikiEditorial.guides : data[kind])
     .map(([id,row]) => {
       const fullKey = articleIndex && wikiSections[kind] + "/MelvorBase:" + id;
       const name = articleIndex?.[fullKey]?.[0] || localName(id,row.name);
@@ -382,13 +353,6 @@ function list(section, articleIndex) {
     ? (a,b) => compareWiki.compare(a.name,b.name) || compareWiki.compare(a.row.name,b.row.name)
     : (a,b) => collator.compare(a.name,b.name);
   rows.sort(order);
-  if (section === "guides") {
-    main.innerHTML = heading(section,groups[section][0],groups[section][2]) +
-      '<div class="reading">' + rows.map(r => card(section,r.name,r.row.subtitle,r.id)).join("") +
-      '</div><p><a class="button secondary" href="' + path("article","#/guides") +
-      '">Руководства по всем навыкам</a></p>';
-    return;
-  }
   const types = {
     items:[["Equipment","Снаряжение"],["Food","Еда"],["Potion","Зелья"],["Weapon","Оружие"]],
     quests:[["MainQuests","Сюжетные"],["SideQuests","Побочные"]]
@@ -471,7 +435,7 @@ function render() {
     if (active) a.setAttribute("aria-current","page");
     else a.removeAttribute("aria-current");
   });
-  if (!section) home();
+  if (!section) main.innerHTML = wikiEditorial.home(path);
   else if ((section === "catalog" || section === "search") && !id && typeof renderWikiCatalog === "function") {
     renderWikiCatalog(section === "search");
   }
@@ -508,7 +472,7 @@ function render() {
   }
   if (!document.querySelector('link[rel="canonical"]')?.href) {
     const title = main.querySelector("h1")?.textContent;
-    if (title) document.title = !section ? "Melvor Idle 2 Вики на русском — предметы, навыки и гайды" : title + " — Melvor Idle 2 Вики";
+    if (title) document.title = !section ? wikiEditorial.title : title + " — Melvor Idle 2 Вики";
   }
   if (!location.hash && !routeParams().has("section")) window.scrollTo(0,0);
 }

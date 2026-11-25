@@ -58,3 +58,27 @@ test("sitemap points to real HTML pages without hash routes or encoded slashes",
   assert.match(missing,/noindex, follow/);
   assert.doesNotMatch(await file("robots.txt"),/Disallow: \/\s*$/m);
 });
+
+test("editorial guides, patch notes and item tips are accessible without JavaScript", async () => {
+  const home = await file("index.html");
+  const directory = await file("wiki/guides/index.html");
+  const sitemap = await file("sitemap.xml");
+  const guides = ["start", "progress", "combat", "quests", "mastery", "gold", "astrology", "herblore", "agility", "updates"];
+  assert.match(home, /0\.11\.7-alpha/);
+  assert.ok(home.includes('href="' + base + '/wiki/guides/start/"'));
+  for (const guide of guides) {
+    const route = "/wiki/guides/" + guide + "/";
+    const html = await file(route.slice(1) + "index.html");
+    assert.ok(directory.includes('href="' + base + route + '"'), route);
+    assert.ok(sitemap.includes("<loc>" + canonical(route) + "</loc>"), route);
+    assert.ok(html.includes('rel="canonical" href="' + canonical(route) + '"'), route);
+    assert.match(html, /https:\/\/news\.melvoridle\.com\//, route);
+    assert.ok([...html.matchAll(/<h2 id="/g)].length >= 4, route);
+  }
+  const update = await file("wiki/guides/updates/index.html");
+  assert.match(update, /<time datetime="2026-11-25">/);
+  assert.match(update, /game-update-v0-11-7-alpha/);
+  const sword = await file("wiki/items/StoneSword/index.html");
+  assert.match(sword, /Как сделать каменный меч/);
+  assert.ok(sword.includes('href="' + base + '/wiki/guides/start/"'));
+});

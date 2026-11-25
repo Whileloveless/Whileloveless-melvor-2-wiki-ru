@@ -46,7 +46,7 @@ test("beginner guide answers how to unlock combat in the static HTML", async () 
   const [page, html] = await fetchHtml("/wiki/guides/start");
   assert.equal(page.status,200);
   assert.match(html,/<title>С чего начать — Melvor Idle 2 Вики<\/title>/);
-  assert.match(mainBody(html),/<h2>Как открыть бой в Melvor Idle 2<\/h2><p>[^<]*каменный меч[^<]*десять креветок/);
+  assert.match(mainBody(html),/<h2 id="part-1">Как открыть бой в Melvor Idle 2<\/h2><p>[^<]*каменный меч[^<]*десять креветок/);
 });
 
 test("SSR articles use a single heading and resolve real packed data and links", async () => {
@@ -84,6 +84,8 @@ test("search noindex and printable response safely contain user query", async ()
   assert.equal(res.status,200);
   assert.match(html,/<meta name="robots" content="noindex, follow">/);
   assert.doesNotMatch(mainBody(html),/<b>креветка/);
+  const [, guideSearch] = await fetchHtml("/wiki/search?q=" + encodeURIComponent("первый меч"));
+  assert.match(mainBody(guideSearch), /href="\/wiki\/guides\/start"/);
 });
 
 test("SEO discovery endpoints include actual card count and canonical links", async () => {

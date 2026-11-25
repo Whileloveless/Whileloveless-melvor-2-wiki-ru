@@ -2,7 +2,6 @@
 import base64
 import hashlib
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -26,15 +25,11 @@ for file in sorted((root / "dist").iterdir()):
     etag = '"' + hashlib.sha256(raw).hexdigest()[:32] + '"'
     assets["/" + file.name] = [mime, content, binary, etag]
 
-client_guides = re.search(r"^const guides = (\{[\s\S]*?^\});$", assets["/app.js"][1], re.MULTILINE)
-if not client_guides:
-    raise ValueError("Missing built-in guides in dist/app.js")
-
 server = output / "dist/server"
 server.mkdir(parents=True, exist_ok=True)
 (server / "index.js").write_text(
     "const assets = " + json.dumps(assets, ensure_ascii=False, separators=(",", ":")) + ";\n"
-    + "const seoGuides = " + client_guides.group(1) + ";\n"
+    + assets["/editorial.js"][1] + "\n"
     + (root / "worker/seo.js").read_text() + "\n"
     + (root / "worker/index.js").read_text()
 )

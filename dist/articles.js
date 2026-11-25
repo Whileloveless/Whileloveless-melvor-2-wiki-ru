@@ -149,6 +149,7 @@ async function renderWikiArticle(key, section, id, fallback) {
     const [content, calculator] = pack[key];
     if (!serverArticle) {
       main.innerHTML = '<article class="article wiki-page">' + heading(section,title,original === title ? "" : original,id) +
+        wikiEditorial.articleNote(path,key) +
         '<div class="wiki-article-content">' + linkArticlePaths(content) + '</div>' +
         sectionBlock("Источник",'<p>' + sourceLink(wikiSourcePage(key)) + '</p>') + '</article>';
     }
@@ -213,11 +214,12 @@ async function renderWikiCatalog(isSearch) {
     const total = Math.max(1,Math.ceil(filtered.length / limit));
     page = Math.min(page,total);
     count.textContent = "Статей: " + number(filtered.length);
+    const guides = isSearch && !chosen && page === 1 ? wikiEditorial.searchResults(path,filter.value) : "";
     if (!filtered.length) {
-      results.innerHTML = '<p class="muted">Ничего не найдено.</p>';
+      results.innerHTML = guides || '<p class="muted">Ничего не найдено.</p>';
       return;
     }
-    results.innerHTML = table(["Статья","Раздел"],filtered.slice((page - 1) * limit,page * limit)
+    results.innerHTML = guides + table(["Статья","Раздел"],filtered.slice((page - 1) * limit,page * limit)
       .map(([key,[translated,original,kind,,image]]) => [
         '<a href="' + wikiArticlePath(key) + '">' + (image ? '<img class="wiki-small-art" alt="" loading="lazy" src="' +
           esc(pagesHosting ? wikiAssetPath(image) : wikiSource + image) + '">' : "") + esc(translated) + '</a>' +

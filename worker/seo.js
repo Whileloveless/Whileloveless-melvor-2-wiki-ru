@@ -129,58 +129,29 @@ function seoPack(id) {
   return pending;
 }
 
-function seoCards(cards) {
-  return '<div class="grid">' + cards.map(([href,title,copy]) =>
-    '<a class="card" href="' + href + '"><div><h3>' + seoEscape(title) + '</h3><p>' +
-    seoEscape(copy) + '</p></div></a>'
-  ).join("") + '</div>';
-}
-
-function seoGuideCards() {
-  return seoCards(Object.entries(seoGuides).map(([id,{name,subtitle}]) =>
-    ["/wiki/guides/" + encodeURIComponent(id),name,subtitle]));
+function seoEditorialPath(group, id) {
+  return "/wiki/" + group + (id ? "/" + encodeURIComponent(id) : "");
 }
 
 function seoHome(request,url) {
-  const title = "Melvor Idle 2 — вики на русском";
-  const description = "Предметы, навыки, монстры, задания и подземелья. Гайды для новичков, калькуляторы прокачки и шансов выпадения предметов.";
-  const cards = Object.entries(seoGroups).map(([id,[,name,copy]]) => ["/wiki/" + id,name,copy]);
-  cards.push(["/wiki/catalog","Полный каталог","Все категории и статьи русскоязычной вики."]);
-  const body = '<section class="hero"><div class="hero-text"><div class="eyebrow">Русскоязычный справочник</div>' +
-    '<h1>Melvor Idle <b>2</b> — вики на русском</h1><p>' + seoEscape(description) +
-    '</p><a class="button" href="/wiki/guides/start">С чего начать</a></div></section>' +
-    '<section class="section"><h2>Разделы вики</h2>' + seoCards(cards) + '</section>' +
-    '<section class="section"><h2>Руководства</h2>' + seoGuideCards() + '</section>';
+  const {title, description} = wikiEditorial;
+  const body = wikiEditorial.home(seoEditorialPath);
   return seoHtml(request,url,{title,description,body,canonical:"/"});
 }
 
-function seoGuide(request,url,id,index) {
+function seoGuide(request,url,id) {
   if (!id) {
     const title = "Руководства";
-    const description = "Первые шаги, развитие навыков и подготовка к бою в Melvor Idle 2.";
-    const guidesKey = "#/guides";
-    const training = Object.hasOwn(index,guidesKey) ?
-      '<section class="section"><h2>Прокачка навыков</h2><p><a href="' + seoArticlePath(guidesKey) +
-      '">Все руководства по прокачке</a></p></section>' : "";
+    const description = "Обучение, сюжетные задания, прокачка навыков и обновления Melvor Idle 2.";
     return seoHtml(request,url,{title,description,canonical:"/wiki/guides",
-      body:seoCrumbs() + seoHeading(title,description) + seoGuideCards() + training});
+      body:seoCrumbs() + seoHeading(title,description) + wikiEditorial.guideIndex(seoEditorialPath)});
   }
-  const guide = Object.hasOwn(seoGuides,id) ? seoGuides[id] : null;
-  if (!guide) return seoNotFound(request,url);
-  const {name:title,subtitle:description,sections,links} = guide;
-  const related = links.map(([group,entity]) => {
-    const type = seoGroups[group]?.[0];
-    const key = type + "/MelvorBase:" + entity;
-    return Object.hasOwn(index,key) ? '<li><a href="' + seoArticlePath(key) + '">' +
-      seoEscape(index[key][0]) + '</a></li>' : "";
-  }).join("");
+  if (!Object.hasOwn(wikiEditorial.guides,id)) return seoNotFound(request,url);
+  const {name:title,subtitle:description} = wikiEditorial.guides[id];
   const body = seoCrumbs("guides","Руководства") + seoHeading(title,description) +
-    sections.map(([heading,copy]) =>
-      '<section class="section"><h2>' + seoEscape(heading) + '</h2><p>' + seoEscape(copy) + '</p></section>'
-    ).join("") +
-    (related ? '<section class="section"><h2>Справочные статьи</h2><ul>' + related + '</ul></section>' : "");
+    wikiEditorial.guideBody(seoEditorialPath,id);
   return seoHtml(request,url,{
-    title,description,body:'<article class="article">' + body + '</article>',
+    title,description,body:'<article class="article wiki-guide">' + body + '</article>',
     canonical:"/wiki/guides/" + encodeURIComponent(id)
   });
 }
@@ -203,6 +174,7 @@ async function seoArticle(request,url,key,[title,original,type,packId]) {
   const group = seoGroupByType[type];
   const body = '<article class="article wiki-page">' + seoCrumbs(group,seoPageName(group)) +
     seoHeading(title,original === title ? "" : original) +
+    wikiEditorial.articleNote(seoEditorialPath,key) +
     '<div class="wiki-article-content">' + content + '</div>' +
     '<section class="section"><h2>Источник</h2><p><a href="' + seoEscape(seoSourceLink(key)) +
     '" target="_blank" rel="noopener">Статья на английском</a></p></section></article>';
@@ -252,10 +224,12 @@ function seoList(request,url,group,snapshot) {
     "Поиск по русским и английским названиям в Melvor Idle 2." :
     "Полный каталог русскоязычной вики Melvor Idle 2.");
   const sliced = rows.slice((page - 1) * seoPageSize,page * seoPageSize);
+  const guides = isSearch && page === 1 ? wikiEditorial.searchResults(seoEditorialPath,query) : "";
   const body = seoCrumbs() + seoHeading(title,description) +
     (query ? '<p>Запрос <strong>' + seoEscape(query) + '</strong></p>' : "") +
     '<p class="meta">Статей: ' + seoNumber.format(rows.length) + '</p>' +
-    (sliced.length ? seoArticleRows(sliced) : '<p>Ничего не найдено.</p>') + seoPagination(group,page,total,query);
+    guides + (sliced.length ? seoArticleRows(sliced) : guides ? "" : '<p>Ничего не найдено.</p>') +
+    seoPagination(group,page,total,query);
   return seoHtml(request,url,{
     title:page === 1 ? title : title + " · страница " + seoNumber.format(page),
     description,body,canonical:isSearch ? null : seoListPath(group,page),indexable:!isSearch
@@ -265,7 +239,7 @@ function seoList(request,url,group,snapshot) {
 async function seoSitemap(request,url) {
   const {index} = await seoIndex();
   const paths = new Set(["/","/wiki/catalog","/wiki/guides",...Object.keys(seoGroups).map(section => "/wiki/" + section)]);
-  for (const id of Object.keys(seoGuides)) paths.add("/wiki/guides/" + encodeURIComponent(id));
+  for (const id of Object.keys(wikiEditorial.guides)) paths.add(seoEditorialPath("guides", id));
   for (const key of Object.keys(index)) paths.add(seoArticlePath(key));
   const body = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -299,6 +273,11 @@ async function routeSeo(request,url) {
   }
 
   try {
+    if (group === "guides") {
+      const canonical = seoEditorialPath(group,id);
+      if (pathname !== canonical) return Response.redirect(url.origin + canonical + url.search,308);
+      return seoGuide(request,url,id);
+    }
     const snapshot = await seoIndex();
     if ((builtIn && id) || group === "article") {
       const key = builtIn ? seoGroups[group][0] + "/MelvorBase:" + id : id;
@@ -309,7 +288,6 @@ async function routeSeo(request,url) {
     }
     const canonical = "/wiki/" + group + (id ? "/" + encodeURIComponent(id) : "");
     if (pathname !== canonical) return Response.redirect(url.origin + canonical + url.search,308);
-    if (group === "guides") return seoGuide(request,url,id,snapshot.index);
     return seoList(request,url,group,snapshot);
   } catch (error) {
     console.error(error);
